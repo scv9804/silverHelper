@@ -1,10 +1,23 @@
 {
+  "statusLine": {
+    "type": "command",
+    "command": "node scripts/statusline.mjs"
+  },
   "permissions": {
     "allow": [
       "Bash(./gradlew:*)",
       "Bash(npm run:*)",
       "Bash(npm install:*)",
       "Bash(docker compose:*)",
+      "Bash(node scripts/track.mjs:*)",
+      "Bash(herdr agent:*)",
+      "Bash(herdr pane:*)",
+      "Bash(herdr worktree:*)",
+      "Bash(herdr workspace list:*)",
+      "Bash(herdr tab list:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh run:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)"

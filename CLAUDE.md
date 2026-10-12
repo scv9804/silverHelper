@@ -33,6 +33,9 @@
 - 사용자에게 보여주는 모든 혜택 정보에는 출처 URL과 기준일을 포함한다.
 
 ## 작업 방식
+- **멀티 에이전트 운영 규칙은 `docs/workflow.md`를 따른다** (팀 구성, 담당 폴더, herdr 사용법, 사용량 기록).
+- 이 저장소의 Claude Code 세션은 기본적으로 팀장 `doyun` 역할이다. worktree에서 실행된 경우 배정된 작업자 역할을 따른다.
+- 작업 시작과 끝에 `node scripts/track.mjs start|end`로 사용량을 기록한다.
 - 이슈 1개 = 브랜치 1개 = PR 1개. 브랜치명 `feat/…`, `fix/…`, `docs/…`
 - 커밋 메시지는 한국어, `feat: …` / `fix: …` 형식
 - 큰 설계 결정은 `docs/adr/NNNN-제목.md`로 남긴다.
