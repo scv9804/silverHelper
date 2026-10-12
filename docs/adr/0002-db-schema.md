@@ -87,6 +87,7 @@
 - 전문 검색 인덱스(pg_trgm 등): 혜택 수가 수천 건 규모라 당장은 필요 없다.
 
 ## 결과
+- 테이블 소유 (Phase 1): `benefit`, `benefit_group`, `benefit_tag`, `benefit_reference`, `benefit_eligibility`의 JPA 엔티티는 `benefit.domain`(읽기용)에 두고, 파이프라인은 이 테이블을 JdbcTemplate으로 쓴다. 두 작업자가 같은 엔티티 클래스를 동시에 고치는 충돌을 막고, 대량 upsert는 JDBC가 단순하기 때문이다. 나머지 테이블은 `pipeline` 소유.
 - 엔티티 작성자는 `V1__init.sql`의 컬럼 이름·타입에 정확히 맞춰야 한다(`validate`). 배열(`ltc_grades`)과 jsonb 컬럼은 Hibernate 7의 `@JdbcTypeCode(SqlTypes.ARRAY / SqlTypes.JSON)`로 매핑한다.
 - 스키마 변경이 필요하면 작업자는 doyun에게 요청하고, doyun이 다음 버전 번호로 마이그레이션을 추가한다.
 - 그룹 병합이 보수적이라 초기에는 중복 혜택이 목록에 보일 수 있다. 실호출 검증(P0-1b) 후 중복 정도를 보고 자동 병합 규칙을 조정한다.
