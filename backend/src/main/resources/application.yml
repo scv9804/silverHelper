@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: silver-helper
+  profiles:
+    default: local
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:silverhelper}
+    username: ${DB_USERNAME:silverhelper}
+    password: ${DB_PASSWORD:silverhelper}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  batch:
+    job:
+      enabled: false # 배치는 스케줄러에서 명시적으로 실행
+    jdbc:
+      initialize-schema: always
+
+  ai:
+    anthropic:
+      api-key: ${ANTHROPIC_API_KEY:}
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  jpa:
+    show-sql: false

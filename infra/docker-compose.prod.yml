@@ -1,0 +1,15 @@
+# 운영(EC2)용: ECR에서 받은 백엔드 이미지 + Redis
+# DB는 AWS RDS(PostgreSQL)를 사용한다. 값은 .env에서 주입.
+services:
+  backend:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
