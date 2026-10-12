@@ -119,6 +119,30 @@ class AdminReviewApiTests extends PipelineIntegrationTest {
 	}
 
 	@Test
+	void 가짜_추출을_기준으로_사람이_승인한_조건은_재처리_중에도_공개를_유지한다() throws Exception {
+		long reviewId = mismatchReview();
+		long benefitId = benefitId(Source.NATIONAL, "WLF00001164");
+		long baseId = (long) jdbc.queryForMap("select claude_extraction_id from review_item where id = ?", reviewId)
+				.get("claude_extraction_id");
+		jdbc.update("update ai_extraction set model = 'rule-based-fake' where id = ?", baseId);
+
+		mvc.perform(post("/api/admin/reviews/{id}/approve", reviewId).contentType(MediaType.APPLICATION_JSON)
+						.content("""
+						{"baseExtractionId": %d, "eligibility": {"minAge": 68, "conditionsSummary": "관리자가 원문 확인"}}
+						""".formatted(baseId)))
+				.andExpect(status().isOk());
+		String verified = (String) benefit(Source.NATIONAL, "WLF00001164").get("verified_hash");
+		assertThat(verified).isNotNull();
+		assertThat(extractionService.processPending().processed()).isZero();
+		assertThat(benefit(Source.NATIONAL, "WLF00001164").get("verified_hash")).isEqualTo(verified);
+		assertThat(jdbc.queryForMap("select min_age, field_sources::text as sources from benefit_eligibility where benefit_id = ?", benefitId))
+				.satisfies(row -> {
+					assertThat(row.get("min_age")).isEqualTo(68);
+					assertThat(row.get("sources").toString()).contains("MANUAL");
+				});
+	}
+
+	@Test
 	void 잘못된_조건은_400() throws Exception {
 		long id = mismatchReview();
 

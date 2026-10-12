@@ -169,14 +169,16 @@ public class BenefitStore {
 				Map.of("id", id, "hash", hash, "now", now));
 	}
 
-	/** 이전 버전이 공개한 가짜 추출 확정을 회수해 실제 모델 처리 대상으로 되돌린다. */
+	/** 이전 버전의 가짜 AI 자동 확정만 회수한다. 사람이 직접 입력해 승인한 조건은 보존한다. */
 	public int revokeFakeVerifications() {
 		return jdbc.getJdbcTemplate().update("""
 			update benefit b set verified_hash = null
 			 where b.verified_hash is not null
 			   and exists (select 1 from benefit_eligibility e
 			                join ai_extraction x on x.id = e.extraction_id
-			                where e.benefit_id = b.id and x.model = 'rule-based-fake')
+			                where e.benefit_id = b.id and x.model = 'rule-based-fake'
+			                  and not exists (select 1 from jsonb_each_text(e.field_sources) field
+			                                  where field.value = 'MANUAL'))
 			""");
 	}
 
