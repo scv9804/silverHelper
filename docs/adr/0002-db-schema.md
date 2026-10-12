@@ -68,7 +68,10 @@
 ### 6. 자격 조건
 - `benefit_eligibility`는 혜택당 1행이고, 확정된 `ai_extraction` 하나(`extraction_id`)에서 나온다. 매칭 API(seojun)는 이 테이블만 읽는다.
 - **NULL은 "조건 없음 또는 원문에 언급 없음"**이다. 예: `min_age IS NULL`은 연령 제한이 없다는 뜻. `true`/`false`는 원문에 명시된 경우만 쓴다.
-- 장기요양: `ltc_required`(등급이 있어야 함) + `ltc_grades`(허용 등급 배열, 1~5, 인지지원등급은 6).
+- 장기요양: `ltc_required` + `ltc_grades`(허용 등급 배열, 1~5, 인지지원등급은 6).
+  - `true`: 장기요양 등급이 있어야 함 (`ltc_grades`가 있으면 그 등급만)
+  - `false`: **장기요양 등급이 있으면 대상이 아님** (예: 노인맞춤돌봄서비스는 장기요양 수급자 제외). PR #5 리뷰에서 확정
+  - `NULL`: 장기요양과 무관
 - 값의 출처: `field_sources`(jsonb)에 필드별로 `STRUCTURED`(API 구조화 필드) 또는 `AI`를 적는다. 구조화 값과 AI 값이 다르면 확정하지 않고 `review_item(STRUCTURED_MISMATCH)`로 보낸다.
 - 원천 코드(생애주기 `006` 등)는 `benefit_tag`에 따로 둔다. 1차 후보를 좁히는 데 쓰고, 최종 판정은 `benefit_eligibility`로 한다.
 

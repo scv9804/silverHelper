@@ -585,7 +585,7 @@ components:
       properties:
         minAge: { type: [integer, 'null'], minimum: 0, maximum: 120 }
         maxAge: { type: [integer, 'null'], minimum: 0, maximum: 120 }
-        ltcRequired: { type: [boolean, 'null'], description: 장기요양 등급이 있어야 함 }
+        ltcRequired: { type: [boolean, 'null'], description: 'true = 장기요양 등급이 있어야 함. false = 등급이 있으면 대상 아님(장기요양 수급자 제외 사업). null = 무관' }
         ltcGrades:
           type: [array, 'null']
           items: { type: integer, minimum: 1, maximum: 6 }
