@@ -20,6 +20,13 @@ export function metricsDir(cwd) {
 
 export const normPath = (p) => path.resolve(p).replace(/[\\/]+$/, '').toLowerCase()
 
+// 하위 폴더(cd backend 등)에서 돌아간 기록도 포함. silverHelper-wt 같은 형제 폴더는 제외
+export const isInside = (child, parent) => {
+  const c = normPath(child)
+  const p = normPath(parent)
+  return c === p || c.startsWith(p + path.sep)
+}
+
 function* walk(dir, filter) {
   if (!fs.existsSync(dir)) return
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -58,7 +65,7 @@ export function claudeUsage({ from, to, cwd, sessionId }) {
       if (d.type !== 'assistant' || !u || !d.timestamp) continue
       if (!inWindow(d.timestamp, from, to)) continue
       if (sessionId && d.sessionId !== sessionId) continue
-      if (cwd && (!d.cwd || normPath(d.cwd) !== normPath(cwd))) continue
+      if (cwd && (!d.cwd || !isInside(d.cwd, cwd))) continue
       const key = `${d.message.id}:${d.requestId}`
       if (seen.has(key)) continue
       seen.add(key)
@@ -85,7 +92,7 @@ export function codexUsage({ from, to, cwd }) {
       if (d.type === 'session_meta') sessionCwd = d.payload?.cwd ?? null
       if (d.type !== 'event_msg' || d.payload?.type !== 'token_count') continue
       if (!inWindow(d.timestamp, from, to)) continue
-      if (cwd && (!sessionCwd || normPath(sessionCwd) !== normPath(cwd))) continue
+      if (cwd && (!sessionCwd || !isInside(sessionCwd, cwd))) continue
       const u = d.payload.info?.last_token_usage
       if (u) {
         const cached = u.cached_input_tokens ?? 0
