@@ -79,14 +79,21 @@ export function claudeUsage({ from, to, cwd, sessionId }) {
   return sum
 }
 
+// rollout-2026-10-13T04-52-03-<id>.jsonl → 세션 시작 시각 (로컬 시간 기준 파일명)
+function codexStartedAt(file) {
+  const m = path.basename(file).match(/rollout-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})/)
+  return m ? new Date(`${m[1]}T${m[2]}:${m[3]}:${m[4]}`).getTime() : fs.statSync(file).mtimeMs
+}
+
 // Codex: ~/.codex/sessions/**/rollout-*.jsonl 의 token_count 이벤트(last_token_usage) 합산
 export function codexUsage({ from, to, cwd }) {
   const root = path.join(os.homedir(), '.codex', 'sessions')
   const sum = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, messages: 0 }
   let limits = null
-  const since = from - 60_000
+  // Windows에서는 Codex가 파일을 열어 둔 채 덧붙여서 mtime이 갱신되지 않는다.
+  // 그래서 mtime 대신 파일 이름의 시작 시각으로 거른다 (from 이후에 시작한 세션은 제외할 필요 없음).
   for (const file of walk(root, (p) => p.endsWith('.jsonl'))) {
-    if (fs.statSync(file).mtimeMs < since) continue
+    if (codexStartedAt(file) > to) continue
     let sessionCwd = null
     for (const d of jsonLines(file)) {
       if (d.type === 'session_meta') sessionCwd = d.payload?.cwd ?? null
@@ -111,7 +118,7 @@ export function codexUsage({ from, to, cwd }) {
 export function codexLimits() {
   const root = path.join(os.homedir(), '.codex', 'sessions')
   const files = [...walk(root, (p) => p.endsWith('.jsonl'))]
-    .map((p) => ({ p, m: fs.statSync(p).mtimeMs }))
+    .map((p) => ({ p, m: codexStartedAt(p) }))
     .sort((a, b) => b.m - a.m)
     .slice(0, 30)
   let latest = null

@@ -7,6 +7,7 @@
 //
 // 토큰은 start를 실행한 폴더(worktree)에서 돌아간 세션만 집계한다.
 // 한도 %는 계정 전체 기준이라 동시에 돌아간 다른 에이전트 사용량도 섞인다.
+import { execSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import {
@@ -56,7 +57,8 @@ switch (cmd) {
       agent,
       model,
       desc: desc.join(' '),
-      cwd: process.cwd(),
+      // backend 같은 하위 폴더에서 실행해도 worktree 전체를 집계 범위로 잡는다
+      cwd: execSync('git rev-parse --show-toplevel').toString().trim(),
       start: Date.now(),
       limitsBefore: limitsOf(model),
     }

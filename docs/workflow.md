@@ -80,8 +80,10 @@ herdr agent list
 
 모든 작업은 시작과 끝에 기록한다. 결과는 [`docs/metrics/ledger.md`](metrics/ledger.md)에 쌓인다.
 
+**기록은 지시하는 쪽(팀장 또는 기획 세션)이 한다.** 작업자에게 맡기면 일을 한참 한 뒤에야 `start`를 실행해 시간과 토큰이 빠진다(Phase 1에서 실제로 발생). 지시를 보내기 직전에 `start`, 보고를 받은 직후에 `end`를 실행한다.
+
 ```bash
-# 작업 시작 (해당 작업자가 일하는 폴더에서 실행)
+# 작업 시작 (작업자의 worktree 폴더에서 실행. 하위 폴더에서 실행해도 worktree 전체를 집계)
 node scripts/track.mjs start P1-benefit-api seojun codex "혜택 조회 API"
 
 # 작업 종료
