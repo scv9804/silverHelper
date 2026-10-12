@@ -8,7 +8,7 @@
 
 ## 결정
 - 백엔드: Java 21, Spring Boot 4, Spring Data JPA, Spring Batch, Spring Security(OAuth2)
-- AI: Spring AI (Anthropic Claude + Google Gemini)
+- AI: Spring AI (Anthropic Claude + OpenAI GPT)
 - DB: PostgreSQL + pgvector (RAG 벡터 검색을 같은 DB에서 처리), 캐시 Redis
 - 프론트: React + TypeScript + Vite + Tailwind, TanStack Query, Zustand
 - 인프라: Docker, AWS(EC2, RDS, ECR, S3/CloudFront), GitHub Actions

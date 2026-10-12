@@ -15,7 +15,7 @@
  ① 수집      공공데이터 API, 지자체 공고
  ② 변경 감지  원문 해시를 비교해서 바뀐 항목만 처리 (비용 절감)
  ③ AI 추출    Claude가 JSON 스키마로 구조화하고 쉬운 말로 요약
- ④ 교차검증   Gemini가 같은 원문을 검증하고, 결과가 다르면 플래그
+ ④ 교차검증   GPT가 같은 원문을 검증하고, 결과가 다르면 플래그
  ⑤ 분기       신뢰도 높음 → 자동 게시 / 낮음 → 관리자 검토 대기열
  ⑥ 알림       조건이 맞는 사용자에게 새 혜택, 마감 임박 알림
 ```
@@ -37,7 +37,7 @@
 | 영역 | 기술 |
 |---|---|
 | Backend | Java 21, Spring Boot 4, Spring Data JPA, Spring Batch, Spring Security (OAuth2) |
-| AI | Spring AI, Anthropic Claude, Google Gemini |
+| AI | Spring AI, Anthropic Claude, OpenAI GPT |
 | DB | PostgreSQL + pgvector, Redis |
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, TanStack Query, Zustand |
 | Infra | Docker, AWS (EC2, RDS, ECR, S3/CloudFront), GitHub Actions |
