@@ -5,6 +5,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.util.Map;
 
+@org.hibernate.annotations.Immutable
 @Entity
 @Table(name = "benefit_eligibility")
 public class BenefitEligibility {

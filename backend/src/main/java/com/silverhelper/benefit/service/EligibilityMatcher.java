@@ -11,10 +11,11 @@ public final class EligibilityMatcher {
         public String level() { return checkItems.isEmpty() ? "ELIGIBLE" : "CHECK_NEEDED"; }
     }
     public static Result match(BenefitEligibility e, Profile p, String ctpv, String sgg) {
-        if (ctpv != null && (!ctpv.equals(p.ctpvName()) || sgg != null && !sgg.equals(p.sggName())))
+        if (ctpv != null && !ctpv.equals(p.ctpvName()) || sgg != null && p.sggName() != null && !sgg.equals(p.sggName()))
             return new Result(true, List.of());
-        if (e == null) return new Result(false, List.of());
         List<String> checks = new ArrayList<>();
+        if (sgg != null && p.sggName() == null) checks.add("거주 시군구를 확인하세요.");
+        if (e == null) return new Result(false, List.copyOf(checks));
         if (e.minAge != null && p.age() < e.minAge || e.maxAge != null && p.age() > e.maxAge)
             return new Result(true, List.of());
         boolean ltcConstraint = Boolean.TRUE.equals(e.ltcRequired) || e.ltcGrades != null && e.ltcGrades.length > 0;

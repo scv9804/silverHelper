@@ -5,6 +5,7 @@ import java.time.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+@org.hibernate.annotations.Immutable
 @Entity
 @Table(name = "benefit")
 public class Benefit {

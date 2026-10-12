@@ -3,6 +3,7 @@ package com.silverhelper.benefit.domain;
 import jakarta.persistence.*;
 import java.io.Serializable;
 
+@org.hibernate.annotations.Immutable
 @Entity
 @Table(name = "benefit_tag")
 @IdClass(BenefitTag.Key.class)

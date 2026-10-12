@@ -35,4 +35,17 @@ class EligibilityMatcherTests {
         assertThat(EligibilityMatcher.match(e,profile(3,null,51,null),null,null).excluded()).isTrue();
         assertThat(EligibilityMatcher.match(e,profile(3,null,null,null),null,null).checkItems()).contains("기준 중위소득 비율을 확인하세요.");
     }
+    @Test void 연령_경계와_등급_없음_조건() {
+        BenefitEligibility e = new BenefitEligibility();
+        e.minAge = 78;
+        e.maxAge = 78;
+        e.ltcRequired = false;
+        assertThat(EligibilityMatcher.match(e,profile(null,true,null,null),null,null).level()).isEqualTo("ELIGIBLE");
+        assertThat(EligibilityMatcher.match(e,profile(3,null,null,null),null,null).excluded()).isTrue();
+        assertThat(EligibilityMatcher.match(e,profile(null,null,null,null),"서울특별시","노원구").excluded()).isTrue();
+        assertThat(EligibilityMatcher.match(e,new Profile(77,"서울특별시","강서구",null,true,null,null,null,null,null,null,null),null,null).excluded()).isTrue();
+        assertThat(EligibilityMatcher.match(e,new Profile(79,"서울특별시","강서구",null,true,null,null,null,null,null,null,null),null,null).excluded()).isTrue();
+        assertThat(EligibilityMatcher.match(null,new Profile(78,"서울특별시",null,null,null,null,null,null,null,null,null,null),
+                "서울특별시","강서구").checkItems()).containsExactly("거주 시군구를 확인하세요.");
+    }
 }
