@@ -1,0 +1,125 @@
+import type { Benefit, Codes, Region } from "../api";
+
+const names = [
+  "장기요양 본인부담금 감경",
+  "기초연금",
+  "노인맞춤돌봄서비스",
+  "응급안전안심서비스",
+  "노인일자리 및 사회활동 지원",
+  "치매안심센터 지원",
+  "독거노인 공동생활 지원",
+  "저소득층 에너지바우처",
+  "장기요양 재가급여",
+  "노인 안검진 및 개안수술",
+  "고령자 복지주택",
+  "방문건강관리 서비스",
+];
+const summaries = [
+  "장기요양 서비스 이용 시 본인부담금을 줄여드립니다.",
+  "소득 요건을 충족하는 어르신에게 매월 연금을 드립니다.",
+  "돌봄이 필요한 어르신에게 방문과 생활 지원을 제공합니다.",
+  "응급 상황을 감지하고 신속하게 도움을 연결합니다.",
+  "어르신의 사회 참여와 일자리 활동을 지원합니다.",
+  "치매 상담, 검사 및 가족 지원 서비스를 제공합니다.",
+  "홀로 사는 어르신의 안전한 생활을 돕습니다.",
+  "냉난방에 필요한 에너지 비용을 지원합니다.",
+  "집에서 이용하는 돌봄 서비스를 지원합니다.",
+  "눈 건강 검사와 수술 비용을 지원합니다.",
+  "어르신을 위한 임대주택 입주를 지원합니다.",
+  "건강 관리가 필요한 가정에 방문 서비스를 제공합니다.",
+];
+const themes = [
+  "보호·돌봄",
+  "생활지원",
+  "보호·돌봄",
+  "안전·위기",
+  "일자리",
+  "신체건강",
+  "주거",
+  "생활지원",
+  "보호·돌봄",
+  "신체건강",
+  "주거",
+  "신체건강",
+];
+export const codes: Codes = {
+  LIFE: [{ code: "006", name: "노년" }],
+  HOUSEHOLD: [{ code: "050", name: "저소득" }],
+  THEME: [
+    { code: "010", name: "신체건강" },
+    { code: "030", name: "생활지원" },
+    { code: "040", name: "주거" },
+    { code: "050", name: "일자리" },
+    { code: "070", name: "안전·위기" },
+    { code: "120", name: "보호·돌봄" },
+  ],
+  LTC_GRADE: [1, 2, 3, 4, 5, 6].map((n) => ({
+    code: String(n),
+    name: n === 6 ? "인지지원등급" : `${n}등급`,
+  })),
+};
+export const regions: Region[] = [
+  "서울특별시",
+  "부산광역시",
+  "대구광역시",
+  "인천광역시",
+  "광주광역시",
+  "대전광역시",
+  "울산광역시",
+  "세종특별자치시",
+  "경기도",
+  "강원특별자치도",
+  "충청북도",
+  "충청남도",
+  "전북특별자치도",
+  "전라남도",
+  "경상북도",
+  "경상남도",
+  "제주특별자치도",
+].map((ctpvName) => ({
+  ctpvName,
+  sggNames: ctpvName === "서울특별시" ? ["강서구", "종로구", "강남구"] : [],
+}));
+export const benefits: Benefit[] = names.map((name, i) => ({
+  id: i + 101,
+  groupId: i + 101,
+  name,
+  summary: summaries[i],
+  source: i === 6 ? "LOCAL" : "NATIONAL",
+  sourceUrl:
+    i === 0
+      ? "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001177&wlfareInfoReldBztpCd=01"
+      : "https://www.bokjiro.go.kr/",
+  agencyName: i % 3 === 0 ? "보건복지부" : "주관 기관",
+  region: i === 6 ? { ctpvName: "서울특별시", sggName: "강서구" } : null,
+  provisionType: i % 3 === 0 ? "요금 감면" : "서비스",
+  supportCycle: null,
+  onlineApply: false,
+  tags: [
+    {
+      type: "THEME",
+      code: codes.THEME.find((code) => code.name === themes[i])!.code,
+      name: themes[i],
+    },
+  ],
+  eligibility: {
+    minAge: i === 0 ? null : 65,
+    maxAge: null,
+    ltcRequired: i === 0 || i === 8,
+    ltcGrades: i === 0 || i === 8 ? [1, 2, 3, 4, 5, 6] : null,
+    incomeMaxMedianPct: [1, 7, 9].includes(i) ? 50 : null,
+    requiresBasicLivelihood: null,
+    requiresNearPoverty: null,
+    requiresBasicPension: null,
+    requiresDisability: null,
+    requiresVeteran: null,
+    requiresSingleHousehold: i === 6 ? true : null,
+    conditionsSummary: summaries[i],
+  },
+  basis: {
+    lastCollectedAt: "2026-10-13T04:00:00+09:00",
+    sourceModifiedAt: null,
+    baseYear: 2026,
+    updatePending: i === 4,
+  },
+}));
