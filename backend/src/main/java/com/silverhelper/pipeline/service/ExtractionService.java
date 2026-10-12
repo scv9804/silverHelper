@@ -4,6 +4,7 @@ import com.silverhelper.pipeline.ai.AiOutput;
 import com.silverhelper.pipeline.ai.EligibilityExtractor;
 import com.silverhelper.pipeline.ai.EligibilitySchema;
 import com.silverhelper.pipeline.ai.SourceText;
+import com.silverhelper.pipeline.ai.RuleBasedEligibilityExtractor;
 import com.silverhelper.pipeline.config.PipelineProperties;
 import com.silverhelper.pipeline.domain.AiProvider;
 import com.silverhelper.pipeline.domain.EligibilityResult;
@@ -91,6 +92,14 @@ public class ExtractionService {
 	}
 
 	public synchronized Report processPending() {
+		int revoked = benefits.revokeFakeVerifications();
+		if (revoked > 0) {
+			log.warn("가짜 추출로 확정된 혜택 {}건의 공개를 회수하고 재처리 대기로 전환", revoked);
+		}
+		if (extractors.values().stream().anyMatch(RuleBasedEligibilityExtractor.class::isInstance)) {
+			log.warn("실제 AI 두 제공자가 준비되지 않아 추출과 공개를 보류합니다");
+			return new Report(0, 0, 0, 0, 0);
+		}
 		List<PendingWork> pending = extractions.findPending(properties.ai().maxPerRun());
 		int published = 0;
 		int reviewed = 0;
@@ -121,6 +130,10 @@ public class ExtractionService {
 		SourceText text = SourceMapper.sourceText(work.source(), readMap(raw.payload()));
 		ExtractionRow claude = obtain(AiProvider.CLAUDE, work, text);
 		ExtractionRow gpt = obtain(AiProvider.GPT, work, text);
+		if (RuleBasedEligibilityExtractor.MODEL.equals(claude.model())
+				|| RuleBasedEligibilityExtractor.MODEL.equals(gpt.model())) {
+			throw new IllegalStateException("가짜 추출 결과는 공개할 수 없습니다");
+		}
 		StructuredFacts facts = structuredFacts(work.benefitId(), work.source());
 		CrossValidator.Decision decision = CrossValidator.decide(validResult(claude), validResult(gpt), facts);
 
@@ -143,6 +156,13 @@ public class ExtractionService {
 
 	private ExtractionRow obtain(AiProvider provider, PendingWork work, SourceText text) {
 		EligibilityExtractor extractor = extractors.get(provider);
+		ExtractionRow cached = extractions.find(work.rawId(), provider, extractor.promptVersion()).orElse(null);
+		if (cached != null) {
+			if (RuleBasedEligibilityExtractor.MODEL.equals(cached.model())) {
+				throw new IllegalStateException("가짜 추출 결과는 재사용할 수 없습니다. 실제 모델의 프롬프트 버전을 올려야 합니다");
+			}
+			return cached;
+		}
 		return extractions.find(work.rawId(), provider, extractor.promptVersion()).orElseGet(() -> {
 			AiOutput output = extractor.extract(text);
 			aiCalls++;

@@ -10,11 +10,82 @@ import com.silverhelper.pipeline.service.ExtractionService;
 import com.silverhelper.pipeline.support.Fixtures;
 import com.silverhelper.pipeline.support.PipelineIntegrationTest;
 import java.time.LocalDate;
+import java.time.Duration;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.silverhelper.pipeline.service.GroupMerger;
 import org.junit.jupiter.api.Test;
 
 // 수집 → 변경 감지 → AI 추출 흐름 (Testcontainers). 공공 API·AI는 픽스처 기반 대체 구현
 class CollectPipelineTests extends PipelineIntegrationTest {
+	@Autowired GroupMerger groupMerger;
+
+	@Test
+	void 중간_빈_페이지는_불완전_수집으로_보고_REMOVED를_막는다() {
+		collectService.collect(Source.LOCAL);
+		String original = fixtureLocalClient.list();
+		fixtureLocalClient.setList(original.replaceAll("<servList>(?:(?!</servList>).)*WLF00005600(?:(?!</servList>).)*</servList>", ""));
+		fixtureLocalClient.emptySecondPage();
+		CollectService.Report report = collectService.collect(Source.LOCAL);
+		assertThat(report.status()).isEqualTo(CollectRunStatus.PARTIAL);
+		assertThat(report.counts().itemsRemoved()).isZero();
+		assertThat(benefit(Source.LOCAL, "WLF00005600").get("status")).isEqualTo("ACTIVE");
+	}
+
+	@Test
+	void 목록이_A에서_B를_거쳐_A로_돌아오면_상세를_재수집한다() {
+		String original = fixtureNationalClient.list();
+		collectService.collect(Source.NATIONAL);
+		fixtureNationalClient.setList(original.replace("안정적인 소득기반을", "더 안정적인 소득기반을"));
+		clock.advance(Duration.ofHours(1));
+		collectService.collect(Source.NATIONAL);
+		assertThat(fixtureNationalClient.detailCalls).hasValue(4);
+		fixtureNationalClient.setList(original);
+		clock.advance(Duration.ofHours(1));
+		collectService.collect(Source.NATIONAL);
+		assertThat(fixtureNationalClient.detailCalls).hasValue(5);
+		assertThat(benefit(Source.NATIONAL, "WLF00001164").get("content_hash")).isNotNull();
+	}
+
+	@Test
+	void 다른_지역기관의_동명_사업은_자동병합하지_않고_후보로_보낸다() {
+		collectService.collect(Source.LOCAL);
+		collectService.collect(Source.GOV24);
+		long local = benefitId(Source.LOCAL, "WLF00005610");
+		long gov = benefitId(Source.GOV24, "300000000105");
+		jdbc.update("update benefit set name = '동명 사업', ctpv_name = '경기도', sgg_name = '양주시', agency_name = '다른 기관' where id = ?", gov);
+		jdbc.update("update benefit set name = '동명 사업' where id = ?", local);
+		groupMerger.mergePending();
+		assertThat(jdbc.queryForObject("select group_id from benefit where id = ?", Long.class, gov))
+				.isNotEqualTo(jdbc.queryForObject("select group_id from benefit where id = ?", Long.class, local));
+		assertThat(count("select count(*) from benefit_group_candidate where benefit_id = ? or target_id = ?", gov, gov)).isPositive();
+	}
+
+	@Test
+	void 과거_가짜_확정은_공개를_회수하고_실제_모델_버전으로_재처리한다() {
+		collectAndExtract(Source.NATIONAL);
+		long id = benefitId(Source.NATIONAL, "WLF00001164");
+		jdbc.update("update ai_extraction set model = 'rule-based-fake' where benefit_id = ?", id);
+		assertThat(extractionService.processPending().published()).isZero();
+		assertThat(benefit(Source.NATIONAL, "WLF00001164").get("verified_hash")).isNull();
+		jdbc.update("update ai_extraction set prompt_version = 'rule-v1' where benefit_id = ?", id);
+		assertThat(extractionService.processPending().published()).isEqualTo(1);
+		assertThat(benefit(Source.NATIONAL, "WLF00001164").get("verified_hash"))
+				.isEqualTo(benefit(Source.NATIONAL, "WLF00001164").get("content_hash"));
+		assertThat(count("select count(*) from ai_extraction where benefit_id = ? and prompt_version = 'test-v1'", id)).isEqualTo(2);
+	}
+
+	@Test
+	void 병합_전_중단된_독립_그룹은_다음_실행에_DB에서_재탐색한다() {
+		collectService.collect(Source.NATIONAL);
+		collectService.collect(Source.GOV24);
+		long national = benefitId(Source.NATIONAL, "WLF00006298");
+		long gov = benefitId(Source.GOV24, "119200000016");
+		jdbc.update("update benefit set name = (select name from benefit where id = ?), agency_name = (select agency_name from benefit where id = ?) where id = ?", national, national, gov);
+		assertThat(groupMerger.mergePending().merged()).isPositive();
+		assertThat(jdbc.queryForObject("select group_id from benefit where id = ?", Long.class, gov))
+				.isEqualTo(jdbc.queryForObject("select group_id from benefit where id = ?", Long.class, national));
+	}
 
 	@Test
 	void 신규_수집_후_같은_내용이면_AI를_다시_부르지_않고_바뀌면_다시_추출한다() {

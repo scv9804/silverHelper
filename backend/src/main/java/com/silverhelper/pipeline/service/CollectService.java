@@ -113,7 +113,10 @@ public class CollectService {
 				status = CollectRunStatus.PARTIAL;
 			}
 			Set<String> seen = saveList(source, list.items(), tally, newIds);
-			if (list.complete() && !seen.isEmpty()) {
+			if (!tally.errors.isEmpty()) {
+				status = CollectRunStatus.PARTIAL;
+			}
+			if (list.complete() && !seen.isEmpty() && tally.errors.isEmpty()) {
 				markRemoved(source, seen, tally);
 			}
 			detailsPending = source == Source.GOV24 ? refreshConditions(tally) : refreshDetails(source, tally);
@@ -121,7 +124,7 @@ public class CollectService {
 				status = CollectRunStatus.PARTIAL;
 			}
 			benefits.recomputePrimaries();
-			GroupMerger.Result merge = groupMerger.mergeNew(newIds);
+			GroupMerger.Result merge = groupMerger.mergePending();
 			if (list.items().isEmpty() && !list.complete()) {
 				status = CollectRunStatus.FAILED;
 			}
@@ -156,12 +159,12 @@ public class CollectService {
 				tally.apiCalls++;
 				total = result.totalCount();
 				if (result.items().isEmpty()) {
-					break;
+					return new ListResult(items, items.size() >= total && !items.isEmpty());
 				}
 				items.addAll(result.items());
 				page++;
 			}
-			return new ListResult(items, true);
+			return new ListResult(items, !items.isEmpty() && items.size() >= total);
 		}
 		catch (PublicApiException e) {
 			if (!(e instanceof QuotaExceededException)) {
@@ -222,6 +225,10 @@ public class CollectService {
 			if (source == Source.GOV24) {
 				benefits.applyDetail(existing.id(), SourceMapper.detailFields(source, item), now, today);
 				benefits.setContentHash(existing.id(), hash);
+			}
+			else {
+				// 목록 버전 A→B→A도 상세를 다시 받아야 한다. 상세 저장 때 해시를 복원한다.
+				benefits.invalidateDetail(existing.id());
 			}
 		}
 		if ("REMOVED".equals(existing.status())) {

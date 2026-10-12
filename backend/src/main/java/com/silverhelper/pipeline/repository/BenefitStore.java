@@ -158,9 +158,26 @@ public class BenefitStore {
 		jdbc.update("update benefit set content_hash = :hash where id = :id", Map.of("id", id, "hash", contentHash));
 	}
 
+	public void invalidateDetail(long id) {
+		// 스키마 변경 없이 목록 버전 회귀를 기록한다. 다음 상세 수집 후 upsert가 시각을 복원한다.
+		jdbc.update("update benefit_raw set last_seen_at = to_timestamp(0) where benefit_id = :id and kind = 'DETAIL'",
+				Map.of("id", id));
+	}
+
 	public void setVerifiedHash(long id, String hash, OffsetDateTime now) {
 		jdbc.update("update benefit set verified_hash = :hash, updated_at = :now where id = :id",
 				Map.of("id", id, "hash", hash, "now", now));
+	}
+
+	/** 이전 버전이 공개한 가짜 추출 확정을 회수해 실제 모델 처리 대상으로 되돌린다. */
+	public int revokeFakeVerifications() {
+		return jdbc.getJdbcTemplate().update("""
+			update benefit b set verified_hash = null
+			 where b.verified_hash is not null
+			   and exists (select 1 from benefit_eligibility e
+			                join ai_extraction x on x.id = e.extraction_id
+			                where e.benefit_id = b.id and x.model = 'rule-based-fake')
+			""");
 	}
 
 	/** 이번 목록에 없는 혜택을 REMOVED로. 새로 REMOVED가 된 id를 돌려준다 */
@@ -196,7 +213,7 @@ public class BenefitStore {
 				  left join lateral (select max(last_seen_at) as ls from benefit_raw
 				                      where benefit_id = b.id and kind = :kind) d on true
 				 where b.source = :source and b.status <> 'REMOVED'
-				   and (d.ls is null or l.fs > d.ls)
+			   and (d.ls is null or l.fs > d.ls)
 				 order by %s desc, b.id
 				 limit :limit
 				""".formatted(SENIOR_PRIORITY), params, (rs, i) -> new Target(rs.getLong("id"), rs.getString("source_id")));
@@ -213,6 +230,16 @@ public class BenefitStore {
 				""", (rs, i) -> new GroupMember(rs.getLong("id"), Source.valueOf(rs.getString("source")),
 				rs.getString("name"), rs.getString("ctpv_name"), rs.getString("sgg_name"),
 				rs.getString("agency_name"), rs.getLong("group_id")));
+	}
+
+	/** 독립 그룹은 중단 후 재시작해도 다시 병합 대상으로 찾는다. */
+	public List<Long> findUngroupedBenefitIds() {
+		return jdbc.queryForList("""
+			select b.id from benefit b
+			 where b.status <> 'REMOVED'
+			   and not exists (select 1 from benefit other where other.group_id = b.group_id and other.id <> b.id)
+			 order by b.id
+			""", Map.of(), Long.class);
 	}
 
 	public List<String> lifeCodes(long id) {

@@ -47,6 +47,10 @@ public class GroupMerger {
 		this.clock = clock;
 	}
 
+	public Result mergePending() {
+		return mergeNew(benefits.findUngroupedBenefitIds());
+	}
+
 	@Transactional
 	public Result mergeNew(Collection<Long> newBenefitIds) {
 		if (newBenefitIds.isEmpty()) {
@@ -83,7 +87,7 @@ public class GroupMerger {
 				continue;
 			}
 			for (GroupMember other : sameName) {
-				if (regionConflict(self, other)) {
+				if (other.id() >= self.id() || regionConflict(self, other)) {
 					continue;
 				}
 				Optional<Long> candidateId = candidates.insert(self.id(), other.id(), "NAME_EXACT", null, now);
@@ -112,11 +116,8 @@ public class GroupMerger {
 				&& Objects.equals(blankToNull(a.sggName()), blankToNull(b.sggName()));
 	}
 
-	/** 지역 사업은 지역이 같으면 같은 기관으로 본다. 전국 사업은 소관부처(첫 단어)가 같아야 한다 */
+	/** 지역 사업도 기관이 일치해야 자동 병합한다. */
 	private static boolean sameAgency(GroupMember a, GroupMember b) {
-		if (blankToNull(a.ctpvName()) != null) {
-			return true;
-		}
 		String ra = agencyRoot(a.agencyName());
 		String rb = agencyRoot(b.agencyName());
 		return ra != null && ra.equals(rb);

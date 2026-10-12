@@ -29,6 +29,7 @@ public class FixtureWelfareClient implements WelfareClient {
 	private String listXml;
 	private final Map<String, String> details = new HashMap<>();
 	private Function<String, RuntimeException> detailFailure;
+	private boolean emptySecondPage;
 	public final AtomicInteger listCalls = new AtomicInteger();
 	public final AtomicInteger detailCalls = new AtomicInteger();
 
@@ -44,6 +45,7 @@ public class FixtureWelfareClient implements WelfareClient {
 		details.clear();
 		details.putAll(defaultDetails);
 		detailFailure = null;
+		emptySecondPage = false;
 		listCalls.set(0);
 		detailCalls.set(0);
 	}
@@ -54,6 +56,10 @@ public class FixtureWelfareClient implements WelfareClient {
 
 	public String list() {
 		return listXml;
+	}
+
+	public void emptySecondPage() {
+		emptySecondPage = true;
 	}
 
 	public void setDetail(String servId, String xml) {
@@ -78,10 +84,10 @@ public class FixtureWelfareClient implements WelfareClient {
 	public SourcePage list(int pageNo, int numOfRows) {
 		listCalls.incrementAndGet();
 		if (pageNo > 1) {
-			return new SourcePage(0, List.of());
+			return new SourcePage(emptySecondPage ? 100 : 0, List.of());
 		}
 		int count = listXml.split("<servList>", -1).length - 1;
-		String xml = TOTAL.matcher(listXml).replaceFirst("<totalCount>" + count + "</totalCount>");
+		String xml = TOTAL.matcher(listXml).replaceFirst("<totalCount>" + (emptySecondPage ? 100 : count) + "</totalCount>");
 		return WelfareXmlParser.parseList(source, xml.getBytes(StandardCharsets.UTF_8));
 	}
 
