@@ -1,12 +1,36 @@
-function App() {
-  return (
-    <main className="mx-auto max-w-2xl px-4 py-16">
-      <h1 className="text-3xl font-bold">실버헬퍼</h1>
-      <p className="mt-4 text-lg text-gray-600">
-        부모님이 받을 수 있는 복지 혜택을 AI가 매일 찾아 정리해 드립니다.
-      </p>
-    </main>
-  )
-}
+import { Link, Route, Routes } from "react-router-dom";
+import { ProfilePage } from "./pages/ProfilePage";
+import { ResultsPage } from "./pages/ResultsPage";
+import { BenefitsPage } from "./pages/BenefitsPage";
+import { DetailPage } from "./pages/DetailPage";
 
-export default App
+export default function App() {
+  return (
+    <>
+      <header className="site-header">
+        <div className="wrap nav">
+          <Link className="brand" to="/">
+            실버헬퍼<span>+</span>
+          </Link>
+          <nav aria-label="주 메뉴">
+            <Link to="/">맞춤 혜택 찾기</Link>
+            <Link to="/benefits">전체 혜택</Link>
+          </nav>
+        </div>
+      </header>
+      <main className="wrap">
+        <Routes>
+          <Route path="/" element={<ProfilePage />} />
+          <Route path="/results" element={<ResultsPage />} />
+          <Route path="/benefits" element={<BenefitsPage />} />
+          <Route path="/benefits/:id" element={<DetailPage />} />
+        </Routes>
+      </main>
+      <footer className="footer">
+        <div className="wrap">
+          실버헬퍼 · 혜택 자격과 신청 방법은 공식 출처에서 확인하세요.
+        </div>
+      </footer>
+    </>
+  );
+}
