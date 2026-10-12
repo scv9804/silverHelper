@@ -217,6 +217,10 @@ public class ReviewService {
 
 	private static Map<String, String> fieldSources(EligibilityResult result, String source) {
 		Map<String, String> sources = new LinkedHashMap<>();
+		if ("MANUAL".equals(source)) {
+			// 모든 조건이 null이어도 직접 입력 승인이라는 사실을 남긴다.
+			sources.put("_approvalSource", "MANUAL");
+		}
 		EligibilityResult.COMPARED_FIELDS.keySet().stream().sorted()
 				.filter(f -> result.value(f) != null)
 				.forEach(f -> sources.put(f, source));

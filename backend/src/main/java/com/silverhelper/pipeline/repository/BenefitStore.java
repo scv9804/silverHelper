@@ -169,7 +169,7 @@ public class BenefitStore {
 				Map.of("id", id, "hash", hash, "now", now));
 	}
 
-	/** 이전 버전의 가짜 AI 자동 확정만 회수한다. 사람이 직접 입력해 승인한 조건은 보존한다. */
+	/** 이전 버전의 가짜 AI 자동 확정만 회수한다. 값이 전부 null인 수동 승인도 출처 표식으로 보존한다. */
 	public int revokeFakeVerifications() {
 		return jdbc.getJdbcTemplate().update("""
 			update benefit b set verified_hash = null

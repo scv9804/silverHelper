@@ -143,6 +143,30 @@ class AdminReviewApiTests extends PipelineIntegrationTest {
 	}
 
 	@Test
+	void 모든_조건이_null인_수동_승인도_가짜_추출_회수에서_제외한다() throws Exception {
+		long reviewId = mismatchReview();
+		long benefitId = benefitId(Source.NATIONAL, "WLF00001164");
+		long baseId = (long) jdbc.queryForMap("select claude_extraction_id from review_item where id = ?", reviewId)
+				.get("claude_extraction_id");
+		jdbc.update("update ai_extraction set model = 'rule-based-fake' where id = ?", baseId);
+
+		mvc.perform(post("/api/admin/reviews/{id}/approve", reviewId).contentType(MediaType.APPLICATION_JSON)
+						.content("{\"baseExtractionId\":" + baseId + ",\"eligibility\":{}}"))
+				.andExpect(status().isOk());
+		String verified = (String) benefit(Source.NATIONAL, "WLF00001164").get("verified_hash");
+		assertThat(verified).isNotNull();
+		assertThat(jdbc.queryForObject("select min_age from benefit_eligibility where benefit_id = ?", Integer.class, benefitId))
+				.isNull();
+		assertThat(jdbc.queryForObject("select field_sources::text from benefit_eligibility where benefit_id = ?",
+				String.class, benefitId)).contains("\"_approvalSource\": \"MANUAL\"");
+
+		assertThat(extractionService.processPending().processed()).isZero();
+		assertThat(benefit(Source.NATIONAL, "WLF00001164").get("verified_hash")).isEqualTo(verified);
+		assertThat(count("select count(*) from benefit where id = ? and status = 'ACTIVE' and verified_hash is not null",
+				benefitId)).isEqualTo(1);
+	}
+
+	@Test
 	void 잘못된_조건은_400() throws Exception {
 		long id = mismatchReview();
 
