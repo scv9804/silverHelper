@@ -49,8 +49,9 @@ spring:
     activate:
       on-profile: local
   jpa:
+    # 스키마는 Flyway(db/migration)로만 바꾼다. 엔티티와 다르면 시작 실패 (ADR 0002)
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
 
 ---
