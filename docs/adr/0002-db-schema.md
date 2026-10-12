@@ -90,3 +90,6 @@
 - 엔티티 작성자는 `V1__init.sql`의 컬럼 이름·타입에 정확히 맞춰야 한다(`validate`). 배열(`ltc_grades`)과 jsonb 컬럼은 Hibernate 7의 `@JdbcTypeCode(SqlTypes.ARRAY / SqlTypes.JSON)`로 매핑한다.
 - 스키마 변경이 필요하면 작업자는 doyun에게 요청하고, doyun이 다음 버전 번호로 마이그레이션을 추가한다.
 - 그룹 병합이 보수적이라 초기에는 중복 혜택이 목록에 보일 수 있다. 실호출 검증(P0-1b) 후 중복 정도를 보고 자동 병합 규칙을 조정한다.
+
+## 변경 이력
+- V2 (P0-4): `benefit`에 상세 화면용 원문 컬럼 `target_content`, `criteria_content`, `benefit_content`, `apply_content` 추가. 조회 API가 원천별 원문 JSON 구조를 몰라도 되게 수집 시 정규화해서 넣는다.
