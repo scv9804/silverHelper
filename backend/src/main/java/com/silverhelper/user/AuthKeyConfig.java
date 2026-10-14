@@ -14,7 +14,7 @@ public class AuthKeyConfig {
     @Bean
     SecretKey authKey(@Value("${app.auth.jwt-secret:}") String secret, Environment env) {
         if (secret.getBytes(StandardCharsets.UTF_8).length<32) {
-            if (!env.matchesProfiles("local", "test"))
+            if (env.matchesProfiles("prod") || !env.matchesProfiles("local", "test"))
                 throw new IllegalStateException("JWT_SECRET must be at least 32 bytes");
             byte[] bytes=new byte[32];
             new SecureRandom().nextBytes(bytes);

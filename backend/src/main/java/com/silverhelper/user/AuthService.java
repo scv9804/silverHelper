@@ -29,7 +29,7 @@ public class AuthService {
 
     public AuthService(UserStore users, StringRedisTemplate redis, JwtEncoder encoder, Environment environment) {
         this.users=users; this.redis=redis; this.encoder=encoder;
-        this.secureCookie=!environment.matchesProfiles("local", "test");
+        this.secureCookie=environment.matchesProfiles("prod") || !environment.matchesProfiles("local", "test");
     }
     public String authorizationCode(long userId) {
         String code=secret();

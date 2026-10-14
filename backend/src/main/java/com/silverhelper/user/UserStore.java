@@ -42,7 +42,15 @@ public class UserStore {
         jdbc.query("select pg_advisory_xact_lock(hashtext(?), hashtext(?))", (rs, row) -> 1,
                 provider, providerId);
         List<User> existing = jdbc.query("select u.id,u.display_name,u.email,u.role from user_account u join social_account s on s.user_id=u.id where s.provider=? and s.provider_user_id=?", UserStore::user, provider, providerId);
-        if (!existing.isEmpty()) return existing.getFirst();
+        if (!existing.isEmpty()) {
+            User user = existing.getFirst();
+            if (provider.equals("KAKAO")) {
+                // 카카오의 현재 검증 결과를 우선한다. 과거에 저장된 미검증 주소도 제거한다.
+                jdbc.update("update user_account set email=? where id=?", email, user.id());
+                return new User(user.id(), user.displayName(), email, user.role());
+            }
+            return user;
+        }
         Long id = jdbc.queryForObject("insert into user_account(display_name,email,role) values(?,?,'USER') returning id", Long.class, name, email);
         jdbc.update("insert into social_account(user_id,provider,provider_user_id) values(?,?,?)", id, provider, providerId);
         return find(id).orElseThrow();

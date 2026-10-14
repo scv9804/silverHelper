@@ -17,9 +17,26 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class AuthServiceTests {
+    @Test void 운영_프로필이_포함되면_리프레시와_삭제_쿠키는_Secure다() {
+        for (String relaxed : new String[] {"local", "test"}) {
+            MockEnvironment env = new MockEnvironment();
+            env.setActiveProfiles("prod", relaxed);
+            UserStore users = mock(UserStore.class);
+            StringRedisTemplate redis = mock(StringRedisTemplate.class);
+            @SuppressWarnings("unchecked") ValueOperations<String,String> values = mock(ValueOperations.class);
+            JwtEncoder encoder = mock(JwtEncoder.class);
+            when(redis.opsForValue()).thenReturn(values);
+            when(encoder.encode(any())).thenReturn(Jwt.withTokenValue("signed").header("alg","HS256").subject("7").build());
+            AuthService service = new AuthService(users, redis, encoder, env);
+            assertTrue(service.issue(new UserStore.User(7,"tester",null,"USER")).cookie().isSecure());
+            assertTrue(service.clearCookie().isSecure());
+        }
+    }
+
     @Test void 리프레시_회전_후_옛_토큰은_401이고_새_토큰은_유효하다() throws Exception {
         UserStore users=mock(UserStore.class);
         StringRedisTemplate redis=mock(StringRedisTemplate.class);
