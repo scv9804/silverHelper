@@ -65,7 +65,7 @@ jobs:
     if: needs.preflight.outputs.backend_ready == 'true'
     concurrency:
       group: silverhelper-backend-production
-      cancel-in-progress: true
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -121,7 +121,7 @@ jobs:
     if: needs.preflight.outputs.frontend_ready == 'true'
     concurrency:
       group: silverhelper-frontend-production
-      cancel-in-progress: true
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       contents: read
