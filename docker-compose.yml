@@ -1,4 +1,4 @@
-# 로컬 개발용: DB와 Redis만 컨테이너로 실행한다.
+# 로컬 개발용: DB, Redis, Mailpit을 컨테이너로 실행한다.
 # 백엔드와 프론트엔드는 PC에서 직접 실행 (README 참고)
 services:
   postgres:
@@ -22,6 +22,13 @@ services:
     container_name: silverhelper-redis
     ports:
       - "6379:6379"
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: silverhelper-mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 volumes:
   postgres-data:

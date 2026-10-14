@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 실버헬퍼 API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     보호자(자녀)를 위한 부모님 복지 혜택 안내 API.
 
@@ -12,9 +12,9 @@ info:
     - 사용자에게 보여주는 혜택에는 항상 `sourceUrl`과 `basis`(기준일 정보)가 들어 있다.
     - 혜택 목록·매칭은 같은 사업을 묶은 그룹(`benefit_group`)당 대표 1건만 돌려준다 (ADR 0002 §3).
     - 공개 조건: 원천 상태 `ACTIVE` + AI 검증 완료(`verified_hash` 있음). 검증 전 혜택은 목록·상세·매칭 어디에도 나오지 않는다.
-    - `/api/admin/**`는 관리자 전용이다. Phase 1에서는 로그인이 없어 항상 401/403이 난다. 테스트는 `ROLE_ADMIN` 모의 사용자로 한다.
+    - `/api/admin/**`는 JWT의 ADMIN 역할이 필요하다. 인증이 없으면 401, 권한이 없으면 403이다.
 
-    관련 문서: `docs/adr/0002-db-schema.md`, `docs/specs/public-api.md`
+    관련 문서: `docs/adr/0002-db-schema.md`, `docs/adr/0003-auth.md`, `docs/adr/0004-notification-rag.md`, `docs/specs/public-api.md`
 servers:
   - url: http://localhost:8080
     description: 로컬 (프론트 개발 서버는 `/api`를 여기로 프록시)
@@ -28,6 +28,14 @@ tags:
     description: 화면용 코드·지역 목록
   - name: admin-reviews
     description: 관리자 검토 대기열
+  - name: auth
+    description: 로그인과 토큰
+  - name: me
+    description: 회원과 부모님 프로필
+  - name: notifications
+    description: 알림 설정
+  - name: chat
+    description: 공개 혜택 근거 기반 챗봇
 
 paths:
   /api/benefits:
@@ -417,14 +425,254 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /api/dev/login:
+    post:
+      tags: [auth]
+      operationId: devLogin
+      summary: local 프로필 전용 개발 로그인 (운영에서는 404)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200': { $ref: '#/components/responses/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/auth/exchange:
+    post:
+      tags: [auth]
+      operationId: exchangeAuthCode
+      summary: OAuth 성공 후 일회용 코드를 액세스 토큰과 리프레시 쿠키로 교환
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/AuthSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshAuth
+      summary: 리프레시 쿠키를 회전하고 새 액세스 토큰 발급
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/AuthSuccess' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: 리프레시 토큰 폐기
+      security: []
+      responses:
+        '204': { description: 로그아웃 완료 및 쿠키 제거 }
+
+  /api/me:
+    get:
+      tags: [me]
+      operationId: getMe
+      security: [{ bearerAuth: [] }]
+      summary: 내 정보
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/me/profiles:
+    get:
+      tags: [me]
+      operationId: listMyProfiles
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 소유한 프로필 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/SavedParentProfile' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [me]
+      operationId: createMyProfile
+      security: [{ bearerAuth: [] }]
+      requestBody: { $ref: '#/components/requestBodies/ParentProfileWrite' }
+      responses:
+        '201': { $ref: '#/components/responses/SavedParentProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/me/profiles/{id}:
+    get:
+      tags: [me]
+      operationId: getMyProfile
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProfileId' }]
+      responses:
+        '200': { $ref: '#/components/responses/SavedParentProfile' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [me]
+      operationId: updateMyProfile
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProfileId' }]
+      requestBody: { $ref: '#/components/requestBodies/ParentProfileWrite' }
+      responses:
+        '200': { $ref: '#/components/responses/SavedParentProfile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [me]
+      operationId: deleteMyProfile
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/ProfileId' }]
+      responses:
+        '204': { description: 삭제 완료 }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/me/saved-benefits:
+    get:
+      tags: [me]
+      operationId: listSavedBenefits
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 저장한 혜택 ID 목록
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { type: integer, format: int64 } }
+    post:
+      tags: [me]
+      operationId: saveBenefit
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [benefitId]
+              properties:
+                benefitId: { type: integer, format: int64 }
+      responses:
+        '204': { description: 저장 완료 }
+
+  /api/me/saved-benefits/{benefitId}:
+    delete:
+      tags: [me]
+      operationId: unsaveBenefit
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: benefitId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204': { description: 저장 해제 }
+
+  /api/me/notification-settings:
+    get:
+      tags: [notifications]
+      operationId: getNotificationSettings
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { $ref: '#/components/responses/NotificationSettings' }
+    put:
+      tags: [notifications]
+      operationId: updateNotificationSettings
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationSettings' }
+      responses:
+        '200': { $ref: '#/components/responses/NotificationSettings' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/chat:
+    post:
+      tags: [chat]
+      operationId: askChat
+      security: [{ bearerAuth: [] }]
+      summary: 공개 혜택만 근거로 답변
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '200':
+          description: 근거가 없으면 answer는 모름, sources는 빈 배열
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ChatAnswer' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
 components:
   securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
     admin:
       type: http
       scheme: bearer
-      description: Phase 2에서 OAuth2 로그인으로 구현. Phase 1에서는 접근 불가.
+      description: JWT의 ADMIN 역할 필요
+
+  requestBodies:
+    ParentProfileWrite:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ParentProfileWrite' }
 
   parameters:
+    ProfileId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
     Page:
       name: page
       in: query
@@ -464,6 +712,39 @@ components:
       schema: { type: integer, format: int64 }
 
   responses:
+    AuthSuccess:
+      description: 액세스 토큰 JSON 및 HttpOnly 리프레시 쿠키
+      headers:
+        Set-Cookie:
+          schema: { type: string }
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/AuthToken' }
+    SavedParentProfile:
+      description: 저장한 프로필
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/SavedParentProfile' }
+    NotificationSettings:
+      description: 알림 설정
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiResponse'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/NotificationSettings' }
     BadRequest:
       description: 요청 값 오류 (`INVALID_REQUEST`)
       content:
@@ -503,6 +784,59 @@ components:
           schema: { $ref: '#/components/schemas/ApiResponse' }
 
   schemas:
+    Me:
+      type: object
+      required: [id, displayName, email, role]
+      properties:
+        id: { type: integer, format: int64 }
+        displayName: { type: string }
+        email: { type: [string, 'null'], format: email }
+        role: { type: string, enum: [USER, ADMIN] }
+    AuthToken:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer, description: 초, example: 900 }
+        user: { $ref: '#/components/schemas/Me' }
+    ParentProfileWrite:
+      allOf:
+        - $ref: '#/components/schemas/ParentProfile'
+        - type: object
+          required: [name]
+          properties:
+            name: { type: string, minLength: 1, maxLength: 100 }
+    SavedParentProfile:
+      allOf:
+        - $ref: '#/components/schemas/ParentProfileWrite'
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer, format: int64 }
+    NotificationSettings:
+      type: object
+      required: [emailEnabled, newBenefitEnabled, deadlineEnabled, deadlineDays]
+      properties:
+        emailEnabled: { type: boolean }
+        newBenefitEnabled: { type: boolean }
+        deadlineEnabled: { type: boolean }
+        deadlineDays: { type: integer, minimum: 1, maximum: 30 }
+    ChatSource:
+      type: object
+      required: [benefitId, name, sourceUrl, basis]
+      properties:
+        benefitId: { type: integer, format: int64 }
+        name: { type: string }
+        sourceUrl: { type: string, format: uri }
+        basis: { $ref: '#/components/schemas/Basis' }
+    ChatAnswer:
+      type: object
+      required: [answer, sources, mock]
+      properties:
+        answer: { type: string, description: 근거 없으면 모름 }
+        sources: { type: array, items: { $ref: '#/components/schemas/ChatSource' } }
+        mock: { type: boolean, description: 가짜 구현 사용 여부 }
     ApiResponse:
       type: object
       required: [success, data, error]
