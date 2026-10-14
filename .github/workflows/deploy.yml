@@ -10,10 +10,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: silverhelper-production-deploy
-  cancel-in-progress: true
-
 jobs:
   preflight:
     if: >-
@@ -67,6 +63,9 @@ jobs:
   backend:
     needs: preflight
     if: needs.preflight.outputs.backend_ready == 'true'
+    concurrency:
+      group: silverhelper-backend-production
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -120,6 +119,9 @@ jobs:
   frontend:
     needs: preflight
     if: needs.preflight.outputs.frontend_ready == 'true'
+    concurrency:
+      group: silverhelper-frontend-production
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
