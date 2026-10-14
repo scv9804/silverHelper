@@ -64,7 +64,7 @@ public class NotificationRepository {
                      or s.deadline_enabled and b.enforce_end_date between :today and :today + s.deadline_days)
                      or exists (
                      select 1 from notification_delivery d where d.user_id=s.user_id and d.profile_id=p.id
-                       and d.benefit_id=b.id and (d.status='FAILED' or d.status='PENDING' and d.created_at < now() - interval '1 hour')))
+                       and d.benefit_id=b.id and d.status='FAILED'))
                    and (b.ctpv_name is null or b.ctpv_name=p.ctpv_name)
                    and (b.sgg_name is null or p.sgg_name is null or b.sgg_name=p.sgg_name)
                 """, Map.of("today", today), (rs, n) -> new Candidate(
@@ -97,14 +97,20 @@ public class NotificationRepository {
                 values (:user,:profile,:benefit,:kind,:event,'PENDING')
                 on conflict(user_id,profile_id,benefit_id,kind,event_key) do update
                   set status='PENDING', error_message=null, created_at=now()
-                  where notification_delivery.status='FAILED' or notification_delivery.status='PENDING'
-                    and notification_delivery.created_at < now() - interval '1 hour'
+                  where notification_delivery.status='FAILED'
                 returning id
                 """, Map.of("user",c.userId(),"profile",c.profileId(),"benefit",c.benefitId(),"kind",kind,"event",eventKey),
                 (rs,n)->rs.getLong(1)).stream().findFirst().orElse(null);
     }
 
-    public void sent(long id) { jdbc.update("update notification_delivery set status='SENT', sent_at=now(), error_message=null where id=:id", Map.of("id",id)); }
+    public void sent(long id) {
+        if (jdbc.update("update notification_delivery set status='SENT', sent_at=now(), error_message=null where id=:id and status='PENDING'", Map.of("id",id)) != 1)
+            throw new IllegalStateException("PENDING delivery not found: " + id);
+    }
+    public void recordUncertain(long id, String error) {
+        jdbc.update("update notification_delivery set error_message=:error where id=:id and status='PENDING'",
+                Map.of("id",id,"error",error.substring(0,Math.min(error.length(),1000))));
+    }
     public void failed(long id, String error) { jdbc.update("update notification_delivery set status='FAILED', error_message=:error where id=:id",
             Map.of("id",id,"error",error.substring(0,Math.min(error.length(),1000)))); }
 
@@ -112,7 +118,7 @@ public class NotificationRepository {
         Integer count=jdbc.queryForObject("""
                 select count(*) from notification_delivery where user_id=:user and profile_id=:profile
                   and benefit_id=:benefit and kind=:kind and event_key=:event
-                  and (status='FAILED' or status='PENDING' and created_at < now() - interval '1 hour')
+                  and status='FAILED'
                 """,Map.of("user",c.userId(),"profile",c.profileId(),"benefit",c.benefitId(),"kind",kind,"event",event),Integer.class);
         return count!=null && count>0;
     }

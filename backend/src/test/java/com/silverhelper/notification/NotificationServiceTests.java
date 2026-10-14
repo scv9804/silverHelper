@@ -32,13 +32,24 @@ class NotificationServiceTests {
         verify(mail).send(any(SimpleMailMessage.class));
         verify(repository).sent(42L);
     }
-    @Test void 발송_실패를_기록해_재시도할_수_있다() {
+    @Test void SMTP_예외는_수신_여부를_확인할_때까지_보류한다() {
         var repository=mock(NotificationRepository.class); var mail=mock(JavaMailSender.class);
         when(repository.candidates(any())).thenReturn(List.of(candidate()));
         when(repository.reserve(any(),anyString(),anyString())).thenReturn(42L);
         doThrow(new IllegalStateException("SMTP unavailable")).when(mail).send(any(SimpleMailMessage.class));
         new NotificationService(repository,mail,CLOCK,"sender@example.com").deliverDaily();
-        verify(repository).failed(42L,"SMTP unavailable");
+        verify(repository).recordUncertain(42L,"SMTP unavailable");
+        verify(repository,never()).failed(anyLong(),anyString());
         verify(repository,never()).sent(42L);
+    }
+    @Test void SMTP_성공_후_상태_저장에_실패해도_재시도_상태로_바꾸지_않는다() {
+        var repository=mock(NotificationRepository.class); var mail=mock(JavaMailSender.class);
+        when(repository.candidates(any())).thenReturn(List.of(candidate()));
+        when(repository.reserve(any(),anyString(),anyString())).thenReturn(42L);
+        doThrow(new IllegalStateException("DB unavailable")).when(repository).sent(42L);
+        new NotificationService(repository,mail,CLOCK,"sender@example.com").deliverDaily();
+        verify(mail).send(any(SimpleMailMessage.class));
+        verify(repository).recordUncertain(42L,"DB unavailable");
+        verify(repository,never()).failed(anyLong(),anyString());
     }
 }

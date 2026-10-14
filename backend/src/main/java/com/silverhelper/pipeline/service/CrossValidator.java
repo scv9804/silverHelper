@@ -69,10 +69,10 @@ public final class CrossValidator {
 		if (summary == null || summary.isBlank()) return List.of();
 		List<Difference> differences = new ArrayList<>();
 		java.util.regex.Matcher age = java.util.regex.Pattern.compile("(?:만\\s*)?(\\d{1,3})\\s*세\\s*이상").matcher(summary);
-		if (age.find() && result.minAge() != null && result.minAge() != Integer.parseInt(age.group(1)))
+		if (age.find() && (result.minAge() == null || result.minAge() != Integer.parseInt(age.group(1))))
 			differences.add(new Difference("conditionsSummary", summary, summary, "minAge=" + result.minAge()));
 		java.util.regex.Matcher max = java.util.regex.Pattern.compile("(?:만\\s*)?(\\d{1,3})\\s*세\\s*이하").matcher(summary);
-		if (max.find() && result.maxAge() != null && result.maxAge() != Integer.parseInt(max.group(1)))
+		if (max.find() && (result.maxAge() == null || result.maxAge() != Integer.parseInt(max.group(1))))
 			differences.add(new Difference("conditionsSummary", summary, summary, "maxAge=" + result.maxAge()));
 		if ((summary.contains("장애인 제외") && Boolean.TRUE.equals(result.requiresDisability()))
 				|| (summary.contains("1인 가구 제외") && Boolean.TRUE.equals(result.requiresSingleHousehold())))

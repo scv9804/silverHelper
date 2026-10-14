@@ -27,6 +27,21 @@ class CrossValidatorTests {
 	}
 
 	@Test
+	void 요약문에_나이_하한이_있지만_구조화_값이_없으면_검토한다() {
+		var d = CrossValidator.decide(age(null, "만 65세 이상"), age(null, "만 65세 이상"), StructuredFacts.NONE);
+		assertThat(d.reason()).isEqualTo(ReviewReason.STRUCTURED_MISMATCH);
+		assertThat(d.differences()).extracting(CrossValidator.Difference::field).contains("conditionsSummary");
+	}
+
+	@Test
+	void 요약문에_나이_상한이_있지만_구조화_값이_없으면_검토한다() {
+		var result = new EligibilityResult(null, null, null, null, null, null, null, null, null, null, null, "70세 이하");
+		var d = CrossValidator.decide(result, result, StructuredFacts.NONE);
+		assertThat(d.reason()).isEqualTo(ReviewReason.STRUCTURED_MISMATCH);
+		assertThat(d.differences()).extracting(CrossValidator.Difference::field).contains("conditionsSummary");
+	}
+
+	@Test
 	void 등급_순서만_다르면_같은_결과다() {
 		EligibilityResult a = new EligibilityResult(null, null, true, List.of(1, 2), null, null, null, null, null, null, null, null);
 		EligibilityResult b = new EligibilityResult(null, null, true, List.of(2, 1), null, null, null, null, null, null, null, null);

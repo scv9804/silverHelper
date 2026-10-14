@@ -76,8 +76,13 @@ public class NotificationService {
             sender.send(message);
             repository.sent(id);
         } catch (RuntimeException ex) {
-            repository.failed(id,ex.getMessage()==null?ex.getClass().getSimpleName():ex.getMessage());
-            log.warn("알림 발송 실패 deliveryId={}",id,ex);
+            // SMTP 예외도 수신 여부가 불확실하다. 운영자가 확인할 때까지 PENDING을 재시도하지 않는다.
+            try {
+                repository.recordUncertain(id,ex.getMessage()==null?ex.getClass().getSimpleName():ex.getMessage());
+            } catch (RuntimeException recordFailure) {
+                log.error("알림 발송 불확실 상태 기록 실패 deliveryId={}",id,recordFailure);
+            }
+            log.warn("알림 발송 결과 확인 필요 deliveryId={}",id,ex);
         }
     }
 }
