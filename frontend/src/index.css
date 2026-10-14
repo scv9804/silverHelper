@@ -22,7 +22,8 @@ a {
 }
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 button {
@@ -66,6 +67,7 @@ nav a {
   font-weight: 700;
   text-decoration: none;
 }
+.nav-button { border: 0; background: none; color: #126b66; font-weight: 700; padding: 0; }
 main.wrap {
   min-height: 70vh;
   padding-top: 42px;
@@ -123,8 +125,9 @@ label,
 legend {
   font-weight: 750;
 }
-input:not([type="radio"]),
-select {
+input:not([type="radio"]):not([type="checkbox"]),
+select,
+textarea {
   display: block;
   width: 100%;
   min-height: 52px;
@@ -135,6 +138,7 @@ select {
   margin-top: 8px;
   color: #18383a;
 }
+textarea { min-height: 130px; resize: vertical; }
 input:focus,
 select:focus,
 button:focus-visible,
@@ -180,6 +184,8 @@ input[type="radio"] {
   height: 19px;
   accent-color: #137a74;
 }
+input[type="checkbox"] { width: 19px; height: 19px; accent-color: #137a74; }
+.manual-fields { display: grid; gap: 18px; margin: 22px 0; }
 .primary,
 .secondary,
 .pager button {
@@ -320,10 +326,30 @@ input[type="radio"] {
   color: #58706c;
   font-size: 0.9rem;
 }
+.narrow { max-width: 760px; margin: auto; }
+.stack { display: grid; gap: 12px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.actions .primary { width: auto; }
+.review-grid { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(0, 2fr); gap: 22px; align-items: start; }
+.review-item { display: grid; gap: 5px; text-align: left; background: white; color: #18383a; border: 1px solid #b8cbc3; border-radius: 12px; padding: 16px; }
+.review-item.selected { border: 3px solid #116f68; }
+.review-item span { color: #5a6d69; }
+.review-section { border-top: 1px solid #dbe6e1; padding: 12px 0; }
+.review-section p { white-space: pre-wrap; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f1f5f1; padding: 12px; border-radius: 8px; font-size: .82rem; }
+.table-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { text-align: left; border: 1px solid #dbe6e1; padding: 8px; overflow-wrap: anywhere; }
+.mock-badge { display: inline-block; vertical-align: middle; background: #fff0d6; color: #714000; border-radius: 8px; padding: 3px 8px; font-size: .78rem; }
+.answer { white-space: pre-wrap; }
+.source-list { padding-left: 24px; }
+.source-list li { margin: 10px 0; }
+.source-list small { display: block; color: #5a6d69; }
 @media (max-width: 760px) {
   .cards,
   .detail-grid,
-  .questions {
+  .questions,
+  .review-grid {
     grid-template-columns: 1fr;
   }
   .filters {

@@ -1,10 +1,13 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useProfile } from "../store";
 import { RegionFields } from "../components/RegionFields";
 import { ThreeWay } from "../components/ThreeWay";
+import { useAuth } from "../auth-context";
 export function ProfilePage() {
-  const { profile, update } = useProfile();
+  const { profile, update, editing } = useProfile();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const editingThisUser = editing?.userId === user?.id;
   return (
     <section>
       <div className="hero">
@@ -20,11 +23,11 @@ export function ProfilePage() {
         className="panel"
         onSubmit={(event) => {
           event.preventDefault();
-          navigate("/results");
+          navigate(editingThisUser ? "/me" : "/results");
         }}
       >
-        <h2>부모님 정보</h2>
-        <p className="muted">입력 내용은 이 기기에만 저장됩니다.</p>
+        <h2>{editingThisUser ? `${editing?.name} 정보 수정` : "부모님 정보"}</h2>
+        <p className="muted">입력 내용은 이 기기에 임시 저장됩니다. {user && <>계정에 보관하려면 <Link to="/me">마이페이지에서 프로필을 저장</Link>하세요.</>}</p>
         <label>
           나이
           <input
@@ -103,7 +106,7 @@ export function ProfilePage() {
           ))}
         </div>
         <button className="primary" type="submit">
-          맞는 혜택 찾기 →
+          {editingThisUser ? "마이페이지에서 변경 저장 →" : "맞는 혜택 찾기 →"}
         </button>
       </form>
     </section>
