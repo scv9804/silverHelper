@@ -1,30 +1,45 @@
-# AWS 배포 준비
+# 단일 서버 배포 절차
 
-실제 배포는 계정과 비용 승인을 받은 뒤 사람이 수행한다. `.github/workflows/deploy.yml`은 main의 CI 성공 후 실행되지만 필요한 GitHub 시크릿이 없으면 해당 배포 작업을 건너뛴다. 수동 실행도 main에서만 허용한다.
+로컬과 AWS는 동일한 `infra/docker-compose.prod.yml`, 백엔드·프론트 이미지 빌드 정의, PostgreSQL/pgvector, Redis를 쓴다. 이 PC에서는 포트폴리오 Apache2.4가 80 포트를 사용하므로 운영 프로필을 HTTP 8088로 검증한다. Apache는 중지하거나 변경하지 않는다. AWS에서는 `infra/docker-compose.https.yml`을 추가해 도메인 인증서와 HTTPS를 켠다. 이 문서는 절차이며 AWS 계정 생성, 결제, DNS 설정 및 실제 배포는 수행하지 않는다.
 
-## 1. 계정과 네트워크
+이전 ECR/RDS/S3/CloudFront 배포용 `.github/workflows/deploy.yml`은 팀장이 `main`에서 삭제했다. **새 단일 서버 자동 배포는 미설정**이며 아래 AWS 이전 절차는 사람이 직접 수행하는 수동 절차다.
 
-1. AWS 계정의 비용 알림과 예산을 설정하고 사용할 리전을 정한다.
-2. VPC의 비공개 서브넷에 RDS PostgreSQL 17을 준비한다. EC2의 보안 그룹에서만 DB 포트 5432를 허용한다. pgvector 확장 설치 가능 여부를 확인한다. 운영 DB 계정에 `CREATE EXTENSION vector` 권한을 준비하거나 관리자가 V5 실행 전에 확장을 설치한다.
-3. EC2에는 Docker Engine, Compose 플러그인, AWS CLI, SSM Agent를 설치한다. HTTPS는 로드 밸런서 또는 역방향 프록시에서 종료한다. EC2 보안 그룹은 필요한 인바운드만 열고 RDS에 접근할 수 있게 한다.
-4. ECR 리포지토리를 만들고 EC2 인스턴스 역할에 ECR pull과 SSM 관리 권한을 부여한다. EC2의 `/opt/silverhelper`에 저장소의 `infra/docker-compose.prod.yml`을 배치한다.
+## 이 PC에서 로컬 호스팅
 
-## 2. 백엔드 환경값
+Docker Desktop Linux 엔진을 실행한 뒤 저장소 루트에서 PowerShell로 한 줄 실행한다. 최초 실행 시 `infra/.env`에 로컬 DB/JWT 난수를 생성하고, 이후 실행은 그 파일을 유지한다. 비밀값 파일은 Git에 올리지 않는다.
 
-EC2의 `/opt/silverhelper/.env`는 파일 권한을 제한해 사람이 만든다. `.env.example`을 기준으로 `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `REDIS_HOST=redis`, `JWT_SECRET`(32바이트 이상)을 설정한다. 이 파일은 Git에 넣지 않는다. Compose의 `BACKEND_IMAGE`는 워크플로가 실행 시 전달한다. DB 접속과 Flyway V1~V5 적용을 운영 전 별도 환경에서 검증한다.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\infra\start-local.ps1
+```
 
-OAuth 제공자 콘솔에서 Google/Kakao 앱과 리디렉션 URI를 등록하고 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `KAKAO_CLIENT_ID`, `KAKAO_CLIENT_SECRET`, `AUTH_CALLBACK_URL`을 설정한다. SMTP 계정과 `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM`을 준비한다. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`는 실제 AI 어댑터를 쓰기로 결정한 경우에만 입력한다. 키가 없으면 가짜 구현 표시가 유지되어야 한다.
+스크립트는 Compose 문법 검사, 이미지 빌드, 컨테이너 기동, `/actuator/health` 확인을 수행한다. 이 PC의 기본 주소는 `http://localhost:8088`이다. 80 포트가 비어 있는 다른 PC에서 `http://<PC IP>`로 제공하려면 `infra/.env`의 `HTTP_PORT=80`으로 설정하고 다시 실행한다. 재실행과 종료 명령:
 
-관리자 지정은 가입된 회원 ID를 확인하고 운영자가 DB에서 `user_account.role='ADMIN'`으로 변경한다. 변경자, 시간, 대상 ID를 운영 기록에 남기고 `/api/admin/**` 접근을 확인한다. 이메일 주소만으로 역할을 부여하지 않는다.
+```powershell
+docker compose -f infra/docker-compose.prod.yml --project-directory infra ps
+docker compose -f infra/docker-compose.prod.yml --project-directory infra down
+```
 
-## 3. 배포용 GitHub 권한과 시크릿
+같은 Wi-Fi의 휴대폰에서는 이 PC의 Wi-Fi IPv4 주소를 확인해 `http://<PC IPv4>:8088`로 접속한다. 80 포트가 비어 `HTTP_PORT=80`으로 실행한 다른 PC에서는 `http://<PC IPv4>`로 접속한다. PowerShell에서 `Get-NetIPAddress -AddressFamily IPv4`로 주소를 확인한다. Windows 방화벽에서 **개인 네트워크 TCP 8088 인바운드**(80 설정 시 80)를 허용한다. 공용 네트워크 프로필이나 공유기 포트 포워딩은 사용하지 않는다. 휴대폰과 PC의 서브넷이 같아야 하며, Wi-Fi의 클라이언트 격리 기능이 켜져 있으면 접속할 수 없다. 방화벽 규칙은 테스트 후 필요 없으면 제거한다.
 
-GitHub Actions OIDC 제공자를 AWS IAM에 등록한다. 저장소와 main 브랜치로 trust policy를 제한한 배포 역할에 다음 최소 권한을 준다: ECR push, 대상 EC2 인스턴스에 대한 SSM SendCommand/GetCommandInvocation, 대상 S3 버킷 쓰기·삭제, 대상 CloudFront 배포 무효화. AWS 정적 액세스 키는 사용하지 않는다.
+운영 프로필이므로 개발 로그인과 샘플 시드는 꺼져 있다. AI/API 키가 없으면 공개 혜택이 0건일 수 있다. 화면 확인에 데모 데이터가 필요하면 운영 DB를 바꾸지 말고 별도 `demo` 프로필과 명확한 “데모” 표시를 별도 이슈로 구현한다. 로컬 HTTP의 IP 주소에서는 `Secure` 쿠키와 외부 OAuth 로그인 기능이 브라우저 정책상 제한될 수 있다. 모바일에서는 우선 페이지, 목록, 레이아웃, API 응답을 검증한다.
 
-저장소 Secrets에 `AWS_ROLE_ARN`, `AWS_REGION`, `ECR_REPOSITORY`, `EC2_INSTANCE_ID`, `S3_BUCKET`, `CLOUDFRONT_DISTRIBUTION_ID`를 등록한다. 백엔드와 프론트의 필수값은 독립적으로 판별한다. 모두 등록해도 main CI가 성공하기 전에는 자동 배포되지 않는다.
+## AWS Lightsail 또는 EC2 한 대로 이전
 
-## 4. 프론트와 확인
+1. 사용자가 Linux 인스턴스와 고정 공인 IP를 준비한다. OS 패치, Docker Engine과 Compose 플러그인을 설치한다. 서버 방화벽과 Lightsail/EC2 보안 그룹은 SSH(관리자 IP만), HTTP 80, HTTPS 443만 열고 PostgreSQL 5432, Redis 6379, 백엔드 8080은 공개하지 않는다.
+2. 저장소의 고정된 커밋을 서버에 체크아웃한다. `infra/.env.example`을 `infra/.env`로 복사해 DB/JWT 난수와 실제 서비스 설정을 채우고, `HTTP_PORT=80`으로 설정한다. 파일은 소유자만 읽도록 `chmod 600 infra/.env`로 제한한다. 로컬의 운영 DB를 이전해야 하면 [운영 체크리스트](../infra/OPERATIONS.md)의 백업을 외부의 안전한 경로로 전달해 복구한다. DB 이름/사용자는 양쪽에서 일치시킨다.
+3. 사용자가 도메인 A 레코드를 고정 공인 IP로 연결하고, 80 포트 접근을 확인한다. 인증서 발급에는 해당 도메인의 소유권과 공개 HTTP 접근이 필요하다. `certbot certonly --standalone -d <domain>` 등으로 Let's Encrypt 인증서를 발급한다. 최초 발급 시 80 포트 점유 서비스는 잠시 중지한다. 인증서 파일을 호스트의 전용 디렉터리에 `fullchain.pem`, `privkey.pem` 이름으로 준비하고 `TLS_CERT_DIR`에 **절대 경로**를 적는다. Docker가 읽을 수 있는 권한을 설정하고 개인키는 외부에 공개하지 않는다. 갱신 후 `docker compose ... exec web nginx -s reload`가 실행되도록 갱신 훅을 설정한다.
+4. `AUTH_CALLBACK_URL=https://<domain>/auth/callback`을 `.env`에 적고 Google/Kakao를 사용한다면 공급자 콘솔의 리다이렉트 URI를 `https://<domain>/login/oauth2/code/<provider>`로 등록한다. HTTPS에서만 브라우저 로그인과 쿠키 동작을 검증한다.
+5. `infra/`에서 아래 명령으로 HTTPS 추가 구성을 검사하고 동일한 백엔드·프론트 이미지를 빌드/실행한다. `docker compose config` 전체 출력은 비밀값을 포함하므로 출력하거나 저장하지 않는다.
 
-S3 버킷은 비공개로 두고 CloudFront Origin Access Control로 제공한다. SPA 경로가 새로고침에서 동작하도록 403/404 오류를 `/index.html`로 매핑한다. CloudFront에서 HTTPS 도메인을 연결하고 `/api`, `/oauth2/authorization/*`, `/login/oauth2/code/*`는 백엔드 HTTPS 엔드포인트로 라우팅하거나 별도 API 도메인을 구성한다. OAuth callback URL과 CORS/쿠키 도메인이 실제 도메인과 일치하는지 확인한다.
+```sh
+cd infra
+docker compose -f docker-compose.prod.yml -f docker-compose.https.yml config --quiet
+docker compose -f docker-compose.prod.yml -f docker-compose.https.yml up --build -d
+docker compose -f docker-compose.prod.yml -f docker-compose.https.yml ps
+docker compose -f docker-compose.prod.yml -f docker-compose.https.yml exec web nginx -t
+curl -I http://<domain>/
+curl -I https://<domain>/
+curl https://<domain>/actuator/health
+```
 
-CI 통과 후 워크플로의 ECR push, SSM 배포, S3 업로드 및 CloudFront 무효화 결과를 확인한다. `/actuator/health`, 로그인·갱신·로그아웃, 공개 혜택 조회, 관리자 권한, Mailpit 대신 실제 SMTP 발송, 챗봇 출처와 가짜 표시를 순서대로 점검한다. 문제가 생기면 이전 커밋의 ECR 이미지 URI로 EC2 Compose를 재실행하고 이전 프론트 배포본을 복원한다.
+HTTP는 HTTPS로 리다이렉트되고, health는 `UP`이어야 한다. 이어서 [운영 체크리스트](../infra/OPERATIONS.md)의 Swagger, 개발 로그인, API, 백업 항목을 확인한다. 무중단 배포나 고가용성은 이 한 대 구성의 범위에 없다. 컨테이너 이미지는 같은 Dockerfile로 빌드하며, 공급자 전용 레지스트리나 서비스는 필요하지 않다.
