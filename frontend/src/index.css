@@ -125,7 +125,7 @@ label,
 legend {
   font-weight: 750;
 }
-input:not([type="radio"]),
+input:not([type="radio"]):not([type="checkbox"]),
 select,
 textarea {
   display: block;
@@ -184,6 +184,8 @@ input[type="radio"] {
   height: 19px;
   accent-color: #137a74;
 }
+input[type="checkbox"] { width: 19px; height: 19px; accent-color: #137a74; }
+.manual-fields { display: grid; gap: 18px; margin: 22px 0; }
 .primary,
 .secondary,
 .pager button {

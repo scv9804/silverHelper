@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api, refreshToken, setAccessToken, type AuthToken, type Me } from "./api";
 import { AuthContext } from "./auth-context";
+import { useProfile } from "./store";
 
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -16,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (token: AuthToken) => { setAccessToken(token.accessToken); setUser(token.user); setReady(true); };
   const logout = async () => {
     try { await api<void>("/api/auth/logout", { method: "POST" }); }
-    finally { setAccessToken(null); setUser(null); }
+    finally { setAccessToken(null); setUser(null); useProfile.getState().clearEditing(); }
   };
   return <AuthContext.Provider value={{ user, ready, login, logout }}>{children}</AuthContext.Provider>;
 }

@@ -23,9 +23,21 @@ function stored(): Profile {
     return initialProfile;
   }
 }
-type State = { profile: Profile; update: (patch: Partial<Profile>) => void };
+type EditingProfile = { id: number; userId: number; name: string };
+type State = {
+  profile: Profile;
+  editing: EditingProfile | null;
+  update: (patch: Partial<Profile>) => void;
+  startEditing: (editing: EditingProfile) => void;
+  renameEditing: (name: string) => void;
+  clearEditing: () => void;
+};
 export const useProfile = create<State>((set) => ({
   profile: stored(),
+  editing: null,
+  startEditing: (editing) => set({ editing }),
+  renameEditing: (name) => set((state) => ({ editing: state.editing ? { ...state.editing, name } : null })),
+  clearEditing: () => set({ editing: null }),
   update: (patch) =>
     set((state) => {
       const profile = { ...state.profile, ...patch };
