@@ -37,7 +37,9 @@ herdr로 여러 AI 코딩 에이전트를 동시에 돌리고, 모듈 단위로 
 | `feat/pipeline` | jiho | 공공 API 수집 → 변경 감지 → Claude 추출 → GPT 검증 → 검토 대기열 |
 
 ### Phase 2
-로그인(카카오·구글) → 관리자 검토 화면 → 알림 → 챗봇(RAG) → AWS 배포
+로그인(카카오·구글) → 관리자 검토 화면 → 알림 → 챗봇(RAG) → AWS 배포 준비
+
+Phase 2는 Codex 한도가 넉넉해서 **팀장까지 전원 Codex**로 운영한다(팀장 `jaewon`, 작업자 `seojun`·`haeun`·`minjun`). Claude는 머지 직전 최종 리뷰만 맡는다. 자세한 내용은 [Phase 2 작업 지시서](plans/2026-10-14-phase2-brief.md).
 
 ## 담당 폴더 (충돌 방지)
 
