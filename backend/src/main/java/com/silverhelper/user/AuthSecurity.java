@@ -48,7 +48,8 @@ public class AuthSecurity {
     @Order(0)
     SecurityFilterChain authFilterChain(HttpSecurity http, JsonMapper mapper,
             ObjectProvider<ClientRegistrationRepository> registrations, AuthenticationSuccessHandler oauthSuccess) throws Exception {
-        http.csrf(AbstractHttpConfigurer::disable).httpBasic(AbstractHttpConfigurer::disable)
+        http.securityMatcher("/api/**", "/oauth2/**", "/login/oauth2/**")
+                .csrf(AbstractHttpConfigurer::disable).httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable).logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(s->s.sessionCreationPolicy(registrations.getIfAvailable()==null?SessionCreationPolicy.STATELESS:SessionCreationPolicy.IF_REQUIRED))
                 .authorizeHttpRequests(a->a

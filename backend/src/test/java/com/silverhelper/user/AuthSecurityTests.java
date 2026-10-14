@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import com.silverhelper.common.response.ApiResponse;
+import com.silverhelper.common.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -16,7 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(controllers=AuthSecurityTests.TestApi.class)
-@Import({AuthSecurity.class,AuthSecurityTests.TestApi.class})
+@Import({AuthSecurity.class,SecurityConfig.class,AuthSecurityTests.TestApi.class})
 class AuthSecurityTests {
     @Autowired MockMvc mvc;
     @MockitoBean AuthenticationSuccessHandler oauthSuccess;
@@ -26,6 +27,10 @@ class AuthSecurityTests {
     }
     @Test void 공개_API는_익명으로_조회된다() throws Exception {
         mvc.perform(get("/api/benefits/test")).andExpect(status().isOk()).andExpect(jsonPath("$.data").value("open"));
+    }
+    @Test void 신규_체인_밖의_경로는_기존_체인이_처리한다() throws Exception {
+        mvc.perform(get("/internal")).andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }
     @Test void 관리자_API는_익명_401() throws Exception {
         mvc.perform(get("/api/admin/test")).andExpect(status().isUnauthorized())

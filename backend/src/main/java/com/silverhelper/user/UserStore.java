@@ -38,6 +38,9 @@ public class UserStore {
     }
     @Transactional
     public User social(String provider, String providerId, String name, String email) {
+        // 같은 소셜 식별자의 첫 로그인만 직렬화한다. 트랜잭션 종료까지 잠금이 유지된다.
+        jdbc.query("select pg_advisory_xact_lock(hashtext(?), hashtext(?))", (rs, row) -> 1,
+                provider, providerId);
         List<User> existing = jdbc.query("select u.id,u.display_name,u.email,u.role from user_account u join social_account s on s.user_id=u.id where s.provider=? and s.provider_user_id=?", UserStore::user, provider, providerId);
         if (!existing.isEmpty()) return existing.getFirst();
         Long id = jdbc.queryForObject("insert into user_account(display_name,email,role) values(?,?,'USER') returning id", Long.class, name, email);
