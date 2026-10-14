@@ -3,6 +3,7 @@ package com.silverhelper.benefit.service;
 import com.silverhelper.benefit.domain.BenefitEligibility;
 import com.silverhelper.benefit.dto.BenefitDtos.Profile;
 import com.silverhelper.pipeline.service.SourceMapper;
+import com.silverhelper.pipeline.service.RegionNames;
 import java.util.*;
 
 /** 순수 자격 판정. null 조건은 제한이 없고, null 프로필 값은 확인이 필요하다. */
@@ -13,7 +14,8 @@ public final class EligibilityMatcher {
     }
     public static Result match(BenefitEligibility e, Profile p, String ctpv, String sgg) {
         boolean unknownRegion = SourceMapper.REGION_UNKNOWN.equals(ctpv);
-        if (ctpv != null && !unknownRegion && !ctpv.equals(p.ctpvName()) || sgg != null && p.sggName() != null && !sgg.equals(p.sggName()))
+        if (ctpv != null && !unknownRegion && !RegionNames.normalize(ctpv).equals(RegionNames.normalize(p.ctpvName()))
+                || sgg != null && p.sggName() != null && !sgg.equals(p.sggName()))
             return new Result(true, List.of());
         List<String> checks = new ArrayList<>();
         if (unknownRegion) checks.add("사업 지역을 확인하세요.");

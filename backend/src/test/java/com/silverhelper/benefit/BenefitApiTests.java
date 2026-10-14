@@ -27,9 +27,10 @@ class BenefitApiTests {
     @Test void 빈_DB에서도_기본_시도_목록을_반환한다() throws Exception {
         org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from benefit", Long.class)).isZero();
         mvc.perform(get("/api/regions")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(17))
+                .andExpect(jsonPath("$.data.length()").value(16))
                 .andExpect(jsonPath("$.data[0].ctpvName").value("서울특별시"))
-                .andExpect(jsonPath("$.data[0].sggNames.length()").value(0));
+                .andExpect(jsonPath("$.data[0].sggNames.length()").value(0))
+                .andExpect(jsonPath("$.data[4].ctpvName").value("전남광주통합특별시"));
     }
     @Test void 전체와_맞춤_목록의_size_상한은_100이다() throws Exception {
         String profile = "{\"age\":75,\"ctpvName\":\"서울특별시\"}";
@@ -41,6 +42,26 @@ class BenefitApiTests {
                 .param("size", "101")).andExpect(status().isBadRequest());
     }
     private long group() { return jdbc.queryForObject("insert into benefit_group default values returning id", Long.class); }
+    @Test void 구_지역명의_저장_혜택과_프로필도_통합_시도로_조회하고_매칭한다() throws Exception {
+        long gwangju = benefit(group(), "LOCAL", "광주 돌봄", "광주광역시", "북구", true);
+        benefit(group(), "LOCAL", "전남 돌봄", "전라남도", "순천시", true);
+        benefit(group(), "LOCAL", "통합 돌봄", "전남광주통합특별시", "목포시", true);
+        mvc.perform(get("/api/regions")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(16))
+                .andExpect(jsonPath("$.data[4].ctpvName").value("전남광주통합특별시"))
+                .andExpect(jsonPath("$.data[4].sggNames.length()").value(3));
+        mvc.perform(get("/api/benefits").param("ctpvName", "전남광주통합특별시"))
+                .andExpect(jsonPath("$.data.totalElements").value(3))
+                .andExpect(jsonPath("$.data.content[0].region.ctpvName").value("전남광주통합특별시"));
+        mvc.perform(get("/api/benefits").param("ctpvName", "광주광역시").param("sggName", "북구"))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].id").value(gwangju));
+        mvc.perform(post("/api/benefits/match").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"age\":75,\"ctpvName\":\"전라남도\",\"sggName\":\"순천시\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.content[0].benefit.region.ctpvName").value("전남광주통합특별시"));
+    }
     private long benefit(long group, String source, String name, String ctpv, String sgg, boolean visible) {
         long id = jdbc.queryForObject("""
                 insert into benefit (source,source_id,group_id,name,summary,source_url,ctpv_name,sgg_name,

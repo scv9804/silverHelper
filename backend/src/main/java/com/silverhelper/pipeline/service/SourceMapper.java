@@ -82,7 +82,7 @@ public final class SourceMapper {
 					cut(sourceUrl(source, item), 1000),
 					cut(join(" ", item.text("ctpvNm"), item.text("sggNm")), 200),
 					cut(item.text("bizChrDeptNm"), 200),
-					cut(item.text("ctpvNm") == null ? REGION_UNKNOWN : item.text("ctpvNm"), 50),
+					cut(item.text("ctpvNm") == null ? REGION_UNKNOWN : RegionNames.normalize(item.text("ctpvNm")), 50),
 					cut(item.text("ctpvNm") == null ? null : item.text("sggNm"), 50),
 					cut(item.text("sprtCycNm"), 100),
 					cut(item.text("srvPvsnNm"), 100),
@@ -228,7 +228,7 @@ public final class SourceMapper {
 				String ctpv = name.substring(0, space);
 				String sgg = name.substring(space + 1).trim();
 				if (isProvince(ctpv) && isDistrict(sgg)) {
-					return new String[] {ctpv, sgg};
+					return new String[] {RegionNames.normalize(ctpv), sgg};
 				}
 			}
 			return new String[] {REGION_UNKNOWN, null};
@@ -236,7 +236,7 @@ public final class SourceMapper {
 		if (agencyType.contains("광역") || agencyType.contains("시도")) {
 			int space = name.indexOf(' ');
 			String ctpv = space > 0 ? name.substring(0, space) : name;
-			return new String[] {isProvince(ctpv) ? ctpv : REGION_UNKNOWN, null};
+			return new String[] {isProvince(ctpv) ? RegionNames.normalize(ctpv) : REGION_UNKNOWN, null};
 		}
 		return new String[] {REGION_UNKNOWN, null};
 	}

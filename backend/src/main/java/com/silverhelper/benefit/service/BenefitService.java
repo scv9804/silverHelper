@@ -6,6 +6,7 @@ import com.silverhelper.common.code.WelfareCode;
 import com.silverhelper.common.exception.*;
 import com.silverhelper.common.response.PageResponse;
 import com.silverhelper.pipeline.service.SourceMapper;
+import com.silverhelper.pipeline.service.RegionNames;
 import com.silverhelper.pipeline.service.DevSampleMarker;
 import jakarta.persistence.EntityManager;
 import java.util.*;
@@ -19,9 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class BenefitService {
     private static final List<String> DEFAULT_CTPV = List.of(
-            "서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시", "대전광역시", "울산광역시",
+            "서울특별시", "부산광역시", "대구광역시", "인천광역시", "전남광주통합특별시", "대전광역시", "울산광역시",
             "세종특별자치시", "경기도", "강원특별자치도", "충청북도", "충청남도", "전북특별자치도",
-            "전라남도", "경상북도", "경상남도", "제주특별자치도");
+            "경상북도", "경상남도", "제주특별자치도");
     private static final String REPRESENTATIVES = """
             with ranked as (select b.id, row_number() over (partition by b.group_id order by
               case when b.id = g.primary_benefit_id then 0 else 1 end,
@@ -45,8 +46,8 @@ public class BenefitService {
         MapSqlParameterSource args = new MapSqlParameterSource();
         StringBuilder where = new StringBuilder();
         if (ctpv != null) {
-            where.append(" and (b.ctpv_name is null or b.ctpv_name=:ctpv or b.ctpv_name=:unknownRegion)");
-            args.addValue("ctpv", ctpv);
+            where.append(" and (b.ctpv_name is null or b.ctpv_name in (:ctpvNames) or b.ctpv_name=:unknownRegion)");
+            args.addValue("ctpvNames", RegionNames.storedNames(ctpv));
             args.addValue("unknownRegion", SourceMapper.REGION_UNKNOWN);
             if (sgg != null) {
                 where.append(" and (b.sgg_name is null or b.sgg_name=:sgg)");
@@ -106,9 +107,9 @@ public class BenefitService {
                 b.applyContent, b.enforceStartDate, b.enforceEndDate, b.contact, refs, others);
     }
     public MatchPage match(Profile profile, int page, int size) {
-        MapSqlParameterSource args = new MapSqlParameterSource().addValue("ctpv", profile.ctpvName()).addValue("age", profile.age())
+        MapSqlParameterSource args = new MapSqlParameterSource().addValue("ctpvNames", RegionNames.storedNames(profile.ctpvName())).addValue("age", profile.age())
                 .addValue("unknownRegion", SourceMapper.REGION_UNKNOWN);
-        String query = FILTERED + " and (b.ctpv_name is null or b.ctpv_name=:ctpv or b.ctpv_name=:unknownRegion)" +
+        String query = FILTERED + " and (b.ctpv_name is null or b.ctpv_name in (:ctpvNames) or b.ctpv_name=:unknownRegion)" +
                 " and (e.min_age is null or e.min_age<=:age) and (e.max_age is null or e.max_age>=:age)";
         if (profile.sggName() != null) {
             query += " and (b.sgg_name is null or b.sgg_name=:sgg)";
@@ -147,7 +148,7 @@ public class BenefitService {
         Map<String, SortedSet<String>> regions = new LinkedHashMap<>();
         DEFAULT_CTPV.forEach(name -> regions.put(name, new TreeSet<>()));
         jdbc.getJdbcTemplate().query("select distinct ctpv_name,sgg_name from benefit where status='ACTIVE' and ctpv_name is not null", rs -> {
-            SortedSet<String> names = regions.computeIfAbsent(rs.getString(1), k -> new TreeSet<>());
+            SortedSet<String> names = regions.computeIfAbsent(RegionNames.normalize(rs.getString(1)), k -> new TreeSet<>());
             if (!SourceMapper.REGION_UNKNOWN.equals(rs.getString(1)) && rs.getString(2) != null) names.add(rs.getString(2));
         });
         regions.remove(SourceMapper.REGION_UNKNOWN);
@@ -162,7 +163,7 @@ public class BenefitService {
                 e.requiresDisability,e.requiresVeteran,e.requiresSingleHousehold,e.conditionsSummary);
         String summary = sample(b) ? "개발용 샘플 데이터 · 자격 조건 미검증. " + (b.summary == null ? "" : b.summary) : b.summary;
         return new Summary(b.id,b.groupId,b.name,summary,b.source,b.sourceUrl,b.agencyName,
-                b.ctpvName == null ? null : new Region(b.ctpvName,b.sggName),b.provisionType,b.supportCycle,
+                b.ctpvName == null ? null : new Region(RegionNames.normalize(b.ctpvName),b.sggName),b.provisionType,b.supportCycle,
                 b.onlineApply,batch.tags.getOrDefault(b.id,List.of()),dto,new Basis(b.lastCollectedAt,b.sourceModifiedAt,b.baseYear,
                 !Objects.equals(b.contentHash,b.verifiedHash) && !sample(b)));
     }

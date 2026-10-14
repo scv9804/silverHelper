@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
-/** 저장된 최신 LIST 원문에서 분류·지역만 다시 계산한다. 수집·검증 이력은 수정하지 않는다. */
+/** 저장된 최신 LIST 원문에서 분류·현재 시도명만 다시 계산한다. 수집·검증 이력은 수정하지 않는다. */
 @Service
 public class StoredListRepair {
     private static final TypeReference<Map<String, Object>> FIELDS = new TypeReference<>() {};
