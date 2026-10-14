@@ -1,5 +1,8 @@
 package com.silverhelper.pipeline.service;
 
+import com.silverhelper.pipeline.domain.RawKind;
+import com.silverhelper.pipeline.domain.Source;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -32,6 +35,24 @@ public final class ContentHasher {
 		StringBuilder canonical = new StringBuilder();
 		append(canonical, fields);
 		return sha256(canonical.toString());
+	}
+
+	/** 원천과 응답 종류별 표시·AI 입력 필드만 변경 감지에 사용한다. */
+	public static String hash(Source source, RawKind kind, Map<String, Object> fields) {
+		Set<String> allowed = switch (kind) {
+			case CONDITIONS -> Set.of("서비스ID", "JA0110", "JA0111", "JA0328", "JA0329", "JA0404");
+			case DETAIL -> source == Source.NATIONAL
+					? Set.of("servNm", "wlfareInfoOutlCn", "crtrYr", "tgtrDtlCn", "slctCritCn", "alwServCn", "applmetList", "inqplCtadrList", "inqplHmpgReldList", "baslawList", "basfrmList")
+					: Set.of("servNm", "servDgst", "sprtTrgtCn", "slctCritCn", "alwServCn", "aplyMtdCn", "enfcBgngYmd", "enfcEndYmd", "inqplCtadrList", "inqplHmpgReldList", "baslawList", "basfrmList");
+			case LIST -> source == Source.GOV24
+					? Set.of("서비스ID", "서비스명", "서비스목적요약", "지원대상", "선정기준", "지원내용", "신청방법", "신청기한", "지원유형", "소관기관명", "소관기관유형", "부서명", "전화문의", "등록일시", "수정일시", "상세조회URL", "서비스분야", "사용자구분")
+					: source == Source.NATIONAL
+					? Set.of("servId", "servNm", "servDgst", "servDtlLink", "jurMnofNm", "jurOrgNm", "sprtCycNm", "srvPvsnNm", "onapPsbltYn", "rprsCtadr", "svcfrstRegTs", "lifeArray", "trgterIndvdlArray", "intrsThemaArray")
+					: Set.of("servId", "servNm", "servDgst", "servDtlLink", "ctpvNm", "sggNm", "bizChrDeptNm", "sprtCycNm", "srvPvsnNm", "aplyMtdNm", "lastModYmd", "lifeNmArray", "trgterIndvdlNmArray", "intrsThemaNmArray");
+		};
+		Map<String, Object> selected = new TreeMap<>();
+		fields.forEach((key, value) -> { if (allowed.contains(key)) selected.put(key, value); });
+		return hash(selected);
 	}
 
 	public static String normalize(String text) {

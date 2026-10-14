@@ -16,6 +16,14 @@ class CrossValidatorTests {
 
 		assertThat(d.publish()).isTrue();
 		assertThat(d.fieldSources()).containsEntry("minAge", "AI").containsEntry("conditionsSummary", "AI");
+		assertThat(d.fieldSources()).containsEntry("_summaryReview", "원문 확인");
+	}
+
+	@Test
+	void 요약문의_명시적_나이와_구조화_나이가_다르면_검토한다() {
+		var d=CrossValidator.decide(age(65,"70세 이상 지원"),age(65,"70세 이상 지원"),StructuredFacts.NONE);
+		assertThat(d.reason()).isEqualTo(ReviewReason.STRUCTURED_MISMATCH);
+		assertThat(d.differences()).extracting(CrossValidator.Difference::field).contains("conditionsSummary");
 	}
 
 	@Test

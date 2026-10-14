@@ -81,6 +81,18 @@ public class EligibilityStore {
 						rs.getString("fs"))).stream().findFirst();
 	}
 
+	/** 운영자가 수동 입력 승인임을 확인한 ID만 보정한다. 반복 실행해도 동일하다. */
+	public int markLegacyManualApproval(long benefitId) {
+		return jdbc.update("""
+				update benefit_eligibility e
+				   set field_sources='{"_approvalSource":"MANUAL"}'::jsonb
+				 where e.benefit_id=:id and e.field_sources='{}'::jsonb
+				   and exists (select 1 from review_item r where r.benefit_id=e.benefit_id
+				                 and r.status='APPROVED' and r.reason not in ('GROUP_CANDIDATE','SOURCE_REMOVED')
+				                 and r.resolved_at >= e.verified_at)
+				""", Map.of("id", benefitId));
+	}
+
 	private static String toArrayLiteral(List<Integer> values) {
 		if (values == null) {
 			return null;

@@ -203,7 +203,7 @@ public class CollectService {
 
 	private void saveListItem(Source source, String sourceId, SourceRecord item, Existing existing,
 			OffsetDateTime now, LocalDate today, Tally tally, List<Long> newIds) {
-		String hash = ContentHasher.hash(item.fields());
+		String hash = ContentHasher.hash(source, RawKind.LIST, item.fields());
 		String payload = jsonMapper.writeValueAsString(item.fields());
 		var listFields = SourceMapper.listFields(source, item);
 		if (existing == null) {
@@ -288,7 +288,7 @@ public class CollectService {
 
 	private void saveDetail(Source source, long benefitId, SourceRecord detail) {
 		OffsetDateTime now = OffsetDateTime.now(clock);
-		String hash = ContentHasher.hash(detail.fields());
+		String hash = ContentHasher.hash(source, RawKind.DETAIL, detail.fields());
 		benefits.applyDetail(benefitId, SourceMapper.detailFields(source, detail), now, now.toLocalDate());
 		raws.upsert(benefitId, RawKind.DETAIL, hash, jsonMapper.writeValueAsString(detail.fields()), detail.rawBody(), now);
 		benefits.setContentHash(benefitId, hash);
@@ -351,7 +351,7 @@ public class CollectService {
 			return;
 		}
 		OffsetDateTime now = OffsetDateTime.now(clock);
-		tx.executeWithoutResult(s -> raws.upsert(benefitId, RawKind.CONDITIONS, ContentHasher.hash(record.fields()),
+		tx.executeWithoutResult(s -> raws.upsert(benefitId, RawKind.CONDITIONS, ContentHasher.hash(Source.GOV24, RawKind.CONDITIONS, record.fields()),
 				jsonMapper.writeValueAsString(record.fields()), record.rawBody(), now));
 	}
 
