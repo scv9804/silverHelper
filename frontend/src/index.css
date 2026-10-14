@@ -71,7 +71,8 @@ nav a {
   min-height: 44px;
 }
 .nav-button { border: 0; background: none; color: #126b66; font-weight: 700; min-height: 44px; padding: 0; }
-.menu-toggle { display: none; }
+/* .secondary(display: inline-flex)보다 뒤에 와도 이기도록 클래스 두 개로 지정 */
+.menu-toggle.secondary { display: none; }
 main.wrap {
   min-height: 70vh;
   padding-top: 42px;
@@ -379,7 +380,7 @@ th, td { text-align: left; border: 1px solid #dbe6e1; padding: 8px; overflow-wra
   }
   nav.open { display: flex; }
   nav a, nav button { width: 100%; padding: 8px 12px; }
-  .menu-toggle { display: inline-flex; }
+  .menu-toggle.secondary { display: inline-flex; }
 }
 @media (max-width: 480px) {
   .eyebrow, .footer, .mock-badge, pre, table { font-size: 16px; }
