@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, refreshToken, type AuthToken, type Me, type SavedProfile } from "./api";
+import { api, refreshToken, type AuthToken, type Me } from "./api";
 import { AuthContext } from "./auth-context";
 import { useProfile } from "./store";
 import { beginClientSession, broadcastSessionChange, clearClientSession, subscribeSessionChanges } from "./session";
-import { lastProfileId } from "./store";
+import { restoreSelectedProfile } from "./profile-restore";
 
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -12,28 +12,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const queryClient = useQueryClient();
   const generation = useRef(0);
+  const activeAccount = useRef<number | null>(null);
   const clear = useCallback(() => {
     generation.current++;
+    activeAccount.current = null;
     clearClientSession();
     queryClient.clear();
     setUser(null);
     setReady(true);
   }, [queryClient]);
   const restoreProfile = useCallback(async (account: Me) => {
-    const state = useProfile.getState();
-    state.setGuest(false);
-    if (state.hasInput) return;
-    const id = lastProfileId(account.id);
-    if (id === null) return;
-    try {
-      const profiles = await api<SavedProfile[]>("/api/me/profiles");
-      const saved = profiles.find((item) => item.id === id);
-      if (saved && !useProfile.getState().hasInput) {
-        const { id: _id, name: _name, ...fields } = saved;
-        void _id; void _name;
-        useProfile.getState().loadProfile(fields);
-      }
-    } catch { /* Profile list remains available on My Page. */ }
+    const requestGeneration = generation.current;
+    await restoreSelectedProfile(account, () => generation.current === requestGeneration && activeAccount.current === account.id);
   }, []);
   useEffect(() => {
     queryClient.clear();
@@ -42,13 +32,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = subscribeSessionChanges((action) => {
       if (action === "logout") { clear(); return; }
       clear();
+      const requestGeneration = generation.current;
       refreshToken().catch(() => refreshToken()).then((token) => {
+        if (requestGeneration !== generation.current) return;
+        activeAccount.current = token.user.id;
         setUser(token.user);
         void restoreProfile(token.user);
-      }).catch(() => clear());
+      }).catch(() => { if (requestGeneration === generation.current) clear(); });
     });
     refreshToken().then((token) => {
-      if (active && current === generation.current) { setUser(token.user); void restoreProfile(token.user); }
+      if (active && current === generation.current) { activeAccount.current = token.user.id; setUser(token.user); void restoreProfile(token.user); }
     }).catch(() => {
       if (active && current === generation.current) setReady(true);
     }).finally(() => {
@@ -61,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
     if (user && user.id !== token.user.id) useProfile.getState().reset();
     beginClientSession(token.accessToken);
+    activeAccount.current = token.user.id;
     setUser(token.user);
     setReady(true);
     void restoreProfile(token.user);
