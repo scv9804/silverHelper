@@ -61,6 +61,7 @@ jobs:
       - uses: aws-actions/amazon-ecr-login@v2
         id: ecr
       - name: Build and push backend image
+        id: push
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
@@ -69,13 +70,13 @@ jobs:
           IMAGE="$REGISTRY/$REPOSITORY:$IMAGE_TAG"
           docker build -t "$IMAGE" backend
           docker push "$IMAGE"
-          echo "image=$IMAGE" >> "$GITHUB_ENV"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
       - name: Deploy to EC2 through SSM
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
           REGISTRY: ${{ steps.ecr.outputs.registry }}
-          IMAGE: ${{ env.image }}
+          IMAGE: ${{ steps.push.outputs.image }}
         run: |
           COMMAND="cd /opt/silverhelper && aws ecr get-login-password --region '$AWS_REGION' | docker login --username AWS --password-stdin '$REGISTRY' && BACKEND_IMAGE='$IMAGE' docker compose -f infra/docker-compose.prod.yml up -d"
           PARAMS=$(jq -cn --arg command "$COMMAND" '{commands:[$command]}')
