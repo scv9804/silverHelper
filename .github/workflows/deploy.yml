@@ -10,16 +10,37 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: silverhelper-production-deploy
+  cancel-in-progress: true
+
 jobs:
   preflight:
     if: >-
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     outputs:
       backend_ready: ${{ steps.check.outputs.backend_ready }}
       frontend_ready: ${{ steps.check.outputs.frontend_ready }}
     steps:
+      - name: Check current main commit
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          CURRENT_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [[ "$TARGET_SHA" == "$CURRENT_SHA" ]]; then
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+            echo 'Deployment skipped: a newer main commit exists.'
+          fi
       - name: Check deployment secrets
         id: check
         env:
@@ -30,13 +51,13 @@ jobs:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
-          if [[ -n "$AWS_ROLE_ARN" && -n "$AWS_REGION" && -n "$ECR_REPOSITORY" && -n "$EC2_INSTANCE_ID" ]]; then
+          if [[ '${{ steps.latest.outputs.current }}' == 'true' && -n "$AWS_ROLE_ARN" && -n "$AWS_REGION" && -n "$ECR_REPOSITORY" && -n "$EC2_INSTANCE_ID" ]]; then
             echo 'backend_ready=true' >> "$GITHUB_OUTPUT"
           else
             echo 'backend_ready=false' >> "$GITHUB_OUTPUT"
             echo 'Backend deploy skipped: AWS secrets are not configured.'
           fi
-          if [[ -n "$AWS_ROLE_ARN" && -n "$AWS_REGION" && -n "$S3_BUCKET" && -n "$CLOUDFRONT_DISTRIBUTION_ID" ]]; then
+          if [[ '${{ steps.latest.outputs.current }}' == 'true' && -n "$AWS_ROLE_ARN" && -n "$AWS_REGION" && -n "$S3_BUCKET" && -n "$CLOUDFRONT_DISTRIBUTION_ID" ]]; then
             echo 'frontend_ready=true' >> "$GITHUB_OUTPUT"
           else
             echo 'frontend_ready=false' >> "$GITHUB_OUTPUT"
@@ -71,7 +92,16 @@ jobs:
           docker build -t "$IMAGE" backend
           docker push "$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+      - name: Recheck current main commit
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          CURRENT_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          [[ "$TARGET_SHA" == "$CURRENT_SHA" ]] && echo 'current=true' >> "$GITHUB_OUTPUT" || echo 'current=false' >> "$GITHUB_OUTPUT"
       - name: Deploy to EC2 through SSM
+        if: steps.latest.outputs.current == 'true'
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
@@ -113,7 +143,16 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
+      - name: Recheck current main commit
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          CURRENT_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          [[ "$TARGET_SHA" == "$CURRENT_SHA" ]] && echo 'current=true' >> "$GITHUB_OUTPUT" || echo 'current=false' >> "$GITHUB_OUTPUT"
       - name: Upload and invalidate
+        if: steps.latest.outputs.current == 'true'
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
           DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}

@@ -25,6 +25,6 @@ GitHub Actions OIDC 제공자를 AWS IAM에 등록한다. 저장소와 main 브�
 
 ## 4. 프론트와 확인
 
-S3 버킷은 비공개로 두고 CloudFront Origin Access Control로 제공한다. SPA 경로가 새로고침에서 동작하도록 403/404 오류를 `/index.html`로 매핑한다. CloudFront에서 HTTPS 도메인을 연결하고 `/api`는 백엔드 HTTPS 엔드포인트로 프록시하거나 별도 API 도메인을 구성한다. OAuth callback URL과 CORS/쿠키 도메인이 실제 도메인과 일치하는지 확인한다.
+S3 버킷은 비공개로 두고 CloudFront Origin Access Control로 제공한다. SPA 경로가 새로고침에서 동작하도록 403/404 오류를 `/index.html`로 매핑한다. CloudFront에서 HTTPS 도메인을 연결하고 `/api`, `/oauth2/authorization/*`, `/login/oauth2/code/*`는 백엔드 HTTPS 엔드포인트로 라우팅하거나 별도 API 도메인을 구성한다. OAuth callback URL과 CORS/쿠키 도메인이 실제 도메인과 일치하는지 확인한다.
 
 CI 통과 후 워크플로의 ECR push, SSM 배포, S3 업로드 및 CloudFront 무효화 결과를 확인한다. `/actuator/health`, 로그인·갱신·로그아웃, 공개 혜택 조회, 관리자 권한, Mailpit 대신 실제 SMTP 발송, 챗봇 출처와 가짜 표시를 순서대로 점검한다. 문제가 생기면 이전 커밋의 ECR 이미지 URI로 EC2 Compose를 재실행하고 이전 프론트 배포본을 복원한다.
