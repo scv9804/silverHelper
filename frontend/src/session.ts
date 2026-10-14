@@ -1,5 +1,5 @@
 import { SESSION_EXPIRED_EVENT, setAccessToken } from "./api.ts";
-import { useProfile } from "./store.ts";
+import { clearGuestProfile, useProfile } from "./store.ts";
 
 export const SESSION_CHANGE_KEY = "silverhelper-session-change";
 
@@ -10,6 +10,7 @@ export function clearClientSession() {
 
 export function beginClientSession(accessToken: string) {
   setAccessToken(accessToken);
+  clearGuestProfile();
   useProfile.getState().clearEditing();
   useProfile.getState().setGuest(false);
   broadcastSessionChange("login");

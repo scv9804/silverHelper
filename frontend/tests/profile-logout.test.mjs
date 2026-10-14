@@ -79,6 +79,7 @@ test("로그인 직후 비로그인 입력은 유지하고 편집 대상만 지�
   assert.equal(useProfile.getState().profile.incomeMedianPct, 45);
   assert.equal(useProfile.getState().editing, null);
   assert.equal(useProfile.getState().guest, false);
+  assert.equal(sessionValues.has("silverhelper-guest-profile"), false);
   assert.ok(values.get(SESSION_CHANGE_KEY).startsWith("login:"));
   clearClientSession();
   assertCleared();
