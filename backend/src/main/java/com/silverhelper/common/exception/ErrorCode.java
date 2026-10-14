@@ -15,6 +15,7 @@ public enum ErrorCode {
 	METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 요청 방식입니다."),
 	UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
 	FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
+	CHAT_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "채팅 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."),
 	INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
 
 	private final HttpStatus status;

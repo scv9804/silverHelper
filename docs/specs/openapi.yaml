@@ -648,6 +648,19 @@ paths:
                     properties:
                       data: { $ref: '#/components/schemas/ChatAnswer' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429':
+          description: 사용자별 분당 또는 일당 채팅 한도 초과 (`CHAT_RATE_LIMITED`)
+          headers:
+            Retry-After:
+              description: 다시 요청할 수 있을 때까지 남은 초
+              schema: { type: integer, minimum: 1 }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiResponse' }
+              example:
+                success: false
+                data: null
+                error: { code: CHAT_RATE_LIMITED, message: 채팅 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요., fieldErrors: [] }
 
 components:
   securitySchemes:
@@ -855,7 +868,7 @@ components:
         code:
           type: string
           description: 기계용 코드
-          enum: [INVALID_REQUEST, BENEFIT_NOT_FOUND, REVIEW_NOT_FOUND, NOT_FOUND, REVIEW_ALREADY_RESOLVED, UNAUTHORIZED, FORBIDDEN, INTERNAL_ERROR]
+          enum: [INVALID_REQUEST, BENEFIT_NOT_FOUND, REVIEW_NOT_FOUND, NOT_FOUND, REVIEW_ALREADY_RESOLVED, METHOD_NOT_ALLOWED, UNAUTHORIZED, FORBIDDEN, CHAT_RATE_LIMITED, INTERNAL_ERROR]
         message: { type: string, description: 사용자에게 보여줄 수 있는 한국어 메시지 }
         fieldErrors:
           type: array
