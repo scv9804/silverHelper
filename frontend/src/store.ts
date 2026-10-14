@@ -15,14 +15,15 @@ export const initialProfile: Profile = {
   veteran: null,
   livingAlone: null,
 };
-function stored(): Profile {
+function removePersistedProfile() {
   try {
-    const value = localStorage.getItem("silverhelper-profile");
-    return value ? { ...initialProfile, ...JSON.parse(value) } : initialProfile;
+    localStorage.removeItem("silverhelper-profile");
   } catch {
-    return initialProfile;
+    /* storage unavailable */
   }
 }
+// Older versions saved sensitive profile fields without an account boundary.
+removePersistedProfile();
 type EditingProfile = { id: number; userId: number; name: string };
 type State = {
   profile: Profile;
@@ -34,27 +35,18 @@ type State = {
   reset: () => void;
 };
 export const useProfile = create<State>((set) => ({
-  profile: stored(),
+  profile: { ...initialProfile },
   editing: null,
   startEditing: (editing) => set({ editing }),
   renameEditing: (name) => set((state) => ({ editing: state.editing ? { ...state.editing, name } : null })),
   clearEditing: () => set({ editing: null }),
   reset: () => {
-    try {
-      localStorage.removeItem("silverhelper-profile");
-    } catch {
-      /* storage unavailable */
-    }
+    removePersistedProfile();
     set({ profile: { ...initialProfile }, editing: null });
   },
   update: (patch) =>
     set((state) => {
       const profile = { ...state.profile, ...patch };
-      try {
-        localStorage.setItem("silverhelper-profile", JSON.stringify(profile));
-      } catch {
-        /* storage unavailable */
-      }
       return { profile };
     }),
 }));

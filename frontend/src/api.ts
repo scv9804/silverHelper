@@ -104,7 +104,13 @@ export type ReviewDetail = ReviewSummary & { sourceUrl: string; sourceText: Reco
 export type ChatAnswer = { answer: string; sources: { benefitId: number; name: string; sourceUrl: string; basis: Basis }[]; mock: boolean };
 
 let accessToken: string | null = null;
-export function setAccessToken(token: string | null) { accessToken = token; }
+let accessVersion = 0;
+export const SESSION_EXPIRED_EVENT = "silverhelper-session-expired";
+export function setAccessToken(token: string | null) { accessToken = token; accessVersion++; }
+class StaleRefreshError extends Error {}
+function notifySessionExpired() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+}
 
 async function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T;
@@ -118,9 +124,17 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
 let refreshInFlight: Promise<AuthToken> | null = null;
 export function refreshToken(): Promise<AuthToken> {
-  if (!refreshInFlight) refreshInFlight = fetch("/api/auth/refresh", { method: "POST", credentials: "same-origin" }).then((response) => parseResponse<AuthToken>(response))
-    .then((token) => { setAccessToken(token.accessToken); return token; })
-    .finally(() => { refreshInFlight = null; });
+  if (!refreshInFlight) {
+    const version = accessVersion;
+    refreshInFlight = fetch("/api/auth/refresh", { method: "POST", credentials: "same-origin" })
+      .then((response) => parseResponse<AuthToken>(response))
+      .then((token) => {
+        if (version !== accessVersion) throw new StaleRefreshError("Session changed during refresh");
+        setAccessToken(token.accessToken);
+        return token;
+      })
+      .finally(() => { refreshInFlight = null; });
+  }
   return refreshInFlight;
 }
 
@@ -132,8 +146,18 @@ export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   });
   let response = await request();
   if (response.status === 401 && !path.startsWith("/api/auth/") && !path.startsWith("/api/dev/")) {
-    try { await refreshToken(); response = await request(); }
-    catch { setAccessToken(null); }
+    let refreshedVersion: number | null = null;
+    try { await refreshToken(); refreshedVersion = accessVersion; response = await request(); }
+    catch (error) {
+      if (!(error instanceof StaleRefreshError)) {
+        setAccessToken(null);
+        notifySessionExpired();
+      }
+    }
+    if (refreshedVersion === accessVersion && response.status === 401) {
+      setAccessToken(null);
+      notifySessionExpired();
+    }
   }
   return parseResponse<T>(response);
 }
