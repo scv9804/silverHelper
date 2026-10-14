@@ -2,8 +2,10 @@ import { useNavigate } from "react-router-dom";
 import { useProfile } from "../store";
 import { RegionFields } from "../components/RegionFields";
 import { ThreeWay } from "../components/ThreeWay";
+import { useAuth } from "../auth-context";
 export function ProfilePage() {
   const { profile, update } = useProfile();
+  const { user } = useAuth();
   const navigate = useNavigate();
   return (
     <section>
@@ -24,7 +26,7 @@ export function ProfilePage() {
         }}
       >
         <h2>부모님 정보</h2>
-        <p className="muted">입력 내용은 이 기기에만 저장됩니다.</p>
+        <p className="muted">입력 내용은 이 기기에 임시 저장됩니다. {user && <>계정에 보관하려면 <a href="/me">마이페이지에서 프로필을 저장</a>하세요.</>}</p>
         <label>
           나이
           <input

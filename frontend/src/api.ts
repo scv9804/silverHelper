@@ -93,18 +93,47 @@ export type Codes = Record<
 >;
 export type Region = { ctpvName: string; sggNames: string[] };
 
-export async function api<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
-  });
+export type Me = { id: number; displayName: string; email: string | null; role: "USER" | "ADMIN" };
+export type AuthToken = { accessToken: string; tokenType: "Bearer"; expiresIn: number; user: Me };
+export type SavedProfile = Profile & { id: number; name: string };
+export type ReviewStatus = "PENDING" | "APPROVED" | "REJECTED" | "RESOLVED";
+export type ReviewReason = "MODEL_MISMATCH" | "SCHEMA_INVALID" | "STRUCTURED_MISMATCH" | "GROUP_CANDIDATE" | "SOURCE_REMOVED" | "OTHER";
+export type ReviewSummary = { id: number; benefitId: number; benefitName: string; source: Benefit["source"]; reason: ReviewReason; status: ReviewStatus; createdAt: string; resolvedAt: string | null; resolvedBy: string | null };
+export type Extraction = { id: number; provider: "CLAUDE" | "GPT"; model: string; promptVersion: string; schemaValid: boolean; result: Record<string, unknown> | null; errorMessage: string | null; createdAt: string };
+export type ReviewDetail = ReviewSummary & { sourceUrl: string; sourceText: Record<string, string>; currentEligibility: Eligibility | null; extractions: Extraction[]; differences: { field: string; claude: unknown; gpt: unknown; structured: unknown }[]; groupCandidate: { targetBenefitId: number; targetName: string; targetSource: Benefit["source"]; method: "NAME_EXACT" | "NAME_SIMILAR" | "AI"; score: number | null } | null; resolutionNote: string | null };
+export type ChatAnswer = { answer: string; sources: { benefitId: number; name: string; sourceUrl: string; basis: Basis }[]; mock: boolean };
+
+let accessToken: string | null = null;
+export function setAccessToken(token: string | null) { accessToken = token; }
+
+async function parseResponse<T>(response: Response): Promise<T> {
+  if (response.status === 204) return undefined as T;
   let result: ApiResponse<T>;
-  try {
-    result = (await response.json()) as ApiResponse<T>;
-  } catch {
-    throw new Error("서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요.");
-  }
+  try { result = (await response.json()) as ApiResponse<T>; }
+  catch { throw new Error("서버 응답을 읽지 못했습니다. 잠시 후 다시 시도해 주세요."); }
   if (!response.ok || !result.success || result.data === null)
     throw new Error(result.error?.message || "요청을 처리하지 못했습니다.");
   return result.data;
+}
+
+let refreshInFlight: Promise<AuthToken> | null = null;
+export function refreshToken(): Promise<AuthToken> {
+  if (!refreshInFlight) refreshInFlight = fetch("/api/auth/refresh", { method: "POST", credentials: "same-origin" }).then((response) => parseResponse<AuthToken>(response))
+    .then((token) => { setAccessToken(token.accessToken); return token; })
+    .finally(() => { refreshInFlight = null; });
+  return refreshInFlight;
+}
+
+export async function api<T>(path: string, options?: RequestInit): Promise<T> {
+  const request = () => fetch(path, {
+    ...options,
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...options?.headers },
+  });
+  let response = await request();
+  if (response.status === 401 && !path.startsWith("/api/auth/") && !path.startsWith("/api/dev/")) {
+    try { await refreshToken(); response = await request(); }
+    catch { setAccessToken(null); }
+  }
+  return parseResponse<T>(response);
 }

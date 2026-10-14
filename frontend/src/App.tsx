@@ -3,8 +3,14 @@ import { ProfilePage } from "./pages/ProfilePage";
 import { ResultsPage } from "./pages/ResultsPage";
 import { BenefitsPage } from "./pages/BenefitsPage";
 import { DetailPage } from "./pages/DetailPage";
+import { LoginPage, AuthCallbackPage } from "./pages/LoginPage";
+import { MyPage } from "./pages/MyPage";
+import { AdminReviewsPage } from "./pages/AdminReviewsPage";
+import { ChatPage } from "./pages/ChatPage";
+import { useAuth } from "./auth-context";
 
 export default function App() {
+  const { user, logout } = useAuth();
   return (
     <>
       <header className="site-header">
@@ -15,6 +21,9 @@ export default function App() {
           <nav aria-label="주 메뉴">
             <Link to="/">맞춤 혜택 찾기</Link>
             <Link to="/benefits">전체 혜택</Link>
+            <Link to="/chat">챗봇</Link>
+            {user?.role === "ADMIN" && <Link to="/admin/reviews">관리자 검토</Link>}
+            {user ? <><Link to="/me">마이페이지</Link><button className="nav-button" onClick={() => void logout()}>로그아웃</button></> : <Link to="/login">로그인</Link>}
           </nav>
         </div>
       </header>
@@ -24,6 +33,11 @@ export default function App() {
           <Route path="/results" element={<ResultsPage />} />
           <Route path="/benefits" element={<BenefitsPage />} />
           <Route path="/benefits/:id" element={<DetailPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/me" element={<MyPage />} />
+          <Route path="/admin/reviews" element={<AdminReviewsPage />} />
+          <Route path="/chat" element={<ChatPage />} />
         </Routes>
       </main>
       <footer className="footer">
