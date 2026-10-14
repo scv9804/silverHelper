@@ -231,9 +231,6 @@ public final class SourceMapper {
 					return new String[] {ctpv, sgg};
 				}
 			}
-			if (name.equals("경주시")) {
-				return new String[] {"경상북도", "경주시"};
-			}
 			return new String[] {REGION_UNKNOWN, null};
 		}
 		if (agencyType.contains("광역") || agencyType.contains("시도")) {

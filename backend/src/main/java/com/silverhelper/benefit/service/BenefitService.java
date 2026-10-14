@@ -18,6 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class BenefitService {
+    private static final List<String> DEFAULT_CTPV = List.of(
+            "서울특별시", "부산광역시", "대구광역시", "인천광역시", "광주광역시", "대전광역시", "울산광역시",
+            "세종특별자치시", "경기도", "강원특별자치도", "충청북도", "충청남도", "전북특별자치도",
+            "전라남도", "경상북도", "경상남도", "제주특별자치도");
     private static final String REPRESENTATIVES = """
             with ranked as (select b.id, row_number() over (partition by b.group_id order by
               case when b.id = g.primary_benefit_id then 0 else 1 end,
@@ -140,8 +144,9 @@ public class BenefitService {
         return out;
     }
     public List<RegionOption> regions() {
-        Map<String, SortedSet<String>> regions = new TreeMap<>();
-        jdbc.getJdbcTemplate().query("select distinct ctpv_name,sgg_name from benefit where status='ACTIVE' and verified_hash is not null and ctpv_name is not null", rs -> {
+        Map<String, SortedSet<String>> regions = new LinkedHashMap<>();
+        DEFAULT_CTPV.forEach(name -> regions.put(name, new TreeSet<>()));
+        jdbc.getJdbcTemplate().query("select distinct ctpv_name,sgg_name from benefit where status='ACTIVE' and ctpv_name is not null", rs -> {
             SortedSet<String> names = regions.computeIfAbsent(rs.getString(1), k -> new TreeSet<>());
             if (!SourceMapper.REGION_UNKNOWN.equals(rs.getString(1)) && rs.getString(2) != null) names.add(rs.getString(2));
         });

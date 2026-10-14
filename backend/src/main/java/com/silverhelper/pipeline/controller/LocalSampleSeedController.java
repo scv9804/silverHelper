@@ -2,6 +2,7 @@ package com.silverhelper.pipeline.controller;
 
 import com.silverhelper.common.response.ApiResponse;
 import com.silverhelper.pipeline.service.LocalSampleSeed;
+import com.silverhelper.pipeline.service.StoredListRepair;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.context.annotation.Profile;
@@ -17,13 +18,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/dev")
 public class LocalSampleSeedController {
     private final LocalSampleSeed seed;
+    private final StoredListRepair repair;
 
-    public LocalSampleSeedController(LocalSampleSeed seed) {
+    public LocalSampleSeedController(LocalSampleSeed seed, StoredListRepair repair) {
         this.seed = seed;
+        this.repair = repair;
     }
 
     @PostMapping("/sample-seed")
     public ApiResponse<LocalSampleSeed.Result> publish(@RequestParam(defaultValue = "5") @Min(1) @Max(20) int limit) {
         return ApiResponse.ok(seed.publish(limit));
+    }
+
+    @PostMapping("/repair-stored-list")
+    public ApiResponse<StoredListRepair.Report> repair(@RequestParam(defaultValue = "0") @Min(0) long afterId,
+            @RequestParam(defaultValue = "500") @Min(1) @Max(500) int limit) {
+        return ApiResponse.ok(repair.repairBatch(afterId, limit));
     }
 }

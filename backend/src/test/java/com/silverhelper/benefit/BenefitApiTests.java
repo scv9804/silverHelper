@@ -24,6 +24,22 @@ class BenefitApiTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired MockMvc mvc;
     @Autowired EntityManagerFactory entityManagerFactory;
+    @Test void 빈_DB에서도_기본_시도_목록을_반환한다() throws Exception {
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("select count(*) from benefit", Long.class)).isZero();
+        mvc.perform(get("/api/regions")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(17))
+                .andExpect(jsonPath("$.data[0].ctpvName").value("서울특별시"))
+                .andExpect(jsonPath("$.data[0].sggNames.length()").value(0));
+    }
+    @Test void 전체와_맞춤_목록의_size_상한은_100이다() throws Exception {
+        String profile = "{\"age\":75,\"ctpvName\":\"서울특별시\"}";
+        mvc.perform(get("/api/benefits").param("size", "100")).andExpect(status().isOk());
+        mvc.perform(get("/api/benefits").param("size", "101")).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/benefits/match").contentType(MediaType.APPLICATION_JSON).content(profile)
+                .param("size", "100")).andExpect(status().isOk());
+        mvc.perform(post("/api/benefits/match").contentType(MediaType.APPLICATION_JSON).content(profile)
+                .param("size", "101")).andExpect(status().isBadRequest());
+    }
     private long group() { return jdbc.queryForObject("insert into benefit_group default values returning id", Long.class); }
     private long benefit(long group, String source, String name, String ctpv, String sgg, boolean visible) {
         long id = jdbc.queryForObject("""

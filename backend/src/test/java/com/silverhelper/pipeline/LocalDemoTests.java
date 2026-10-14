@@ -45,6 +45,7 @@ class LocalDemoTests extends PipelineIntegrationTest {
     @WithMockUser(roles = "USER")
     void 일반_사용자는_샘플을_공개할_수_없다() throws Exception {
         mvc.perform(post("/api/admin/dev/sample-seed")).andExpect(status().isForbidden());
+        mvc.perform(post("/api/admin/dev/repair-stored-list")).andExpect(status().isForbidden());
     }
 
     @Test
