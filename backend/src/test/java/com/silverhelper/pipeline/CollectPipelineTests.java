@@ -7,6 +7,7 @@ import com.silverhelper.pipeline.domain.CollectRunStatus;
 import com.silverhelper.pipeline.domain.Source;
 import com.silverhelper.pipeline.service.CollectService;
 import com.silverhelper.pipeline.service.ExtractionService;
+import com.silverhelper.pipeline.service.ContentHasher;
 import com.silverhelper.pipeline.support.Fixtures;
 import com.silverhelper.pipeline.support.PipelineIntegrationTest;
 import java.time.LocalDate;
@@ -15,10 +16,38 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.silverhelper.pipeline.service.GroupMerger;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 // 수집 → 변경 감지 → AI 추출 흐름 (Testcontainers). 공공 API·AI는 픽스처 기반 대체 구현
 class CollectPipelineTests extends PipelineIntegrationTest {
 	@Autowired GroupMerger groupMerger;
+	@Autowired JsonMapper jsonMapper;
+
+	@Test
+	void 구형_전체필드_해시라도_동일_내용이면_재수집과_AI_재추출을_막는다() {
+		collectAndExtract(Source.NATIONAL);
+		long id=benefitId(Source.NATIONAL,"WLF00001164");
+		for (String kind : new String[]{"LIST","DETAIL"}) {
+			Map<String,Object> row=jdbc.queryForMap("select id,payload::text as payload from benefit_raw where benefit_id=? and kind=?",id,kind);
+			Map<String,Object> fields=jsonMapper.readValue((String)row.get("payload"),new TypeReference<>() { });
+			String legacy=ContentHasher.hash(fields);
+			jdbc.update("update benefit_raw set content_hash=? where id=?",legacy,row.get("id"));
+			if (kind.equals("DETAIL"))
+				jdbc.update("update benefit set content_hash=?,verified_hash=? where id=?",legacy,legacy,id);
+		}
+		String before=(String)benefit(Source.NATIONAL,"WLF00001164").get("content_hash");
+		int detailCalls=fixtureNationalClient.detailCalls.get();
+		int aiCalls=claudeTestExtractor.calls.get();
+
+		ExtractionService.Report result=collectAndExtract(Source.NATIONAL);
+
+		assertThat(result.processed()).isZero();
+		assertThat(fixtureNationalClient.detailCalls).hasValue(detailCalls);
+		assertThat(claudeTestExtractor.calls).hasValue(aiCalls);
+		assertThat(benefit(Source.NATIONAL,"WLF00001164").get("content_hash")).isEqualTo(before);
+		assertThat(benefit(Source.NATIONAL,"WLF00001164").get("verified_hash")).isEqualTo(before);
+	}
 
 	@Test
 	void 중간_빈_페이지는_불완전_수집으로_보고_REMOVED를_막는다() {

@@ -8,15 +8,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.json.JsonMapper;
+import io.micrometer.core.instrument.MeterRegistry;
 
 @Configuration(proxyBeanMethods=false)
 public class ChatModelConfig {
     @Bean
-    EmbeddingModel embeddingModel(@Value("${spring.ai.openai.api-key:}") String key, JsonMapper mapper) {
-        return key.isBlank()?new DeterministicModels():new OpenAiModels(key,mapper);
+    EmbeddingModel embeddingModel(@Value("${spring.ai.openai.api-key:}") String key, JsonMapper mapper, MeterRegistry metrics) {
+        return key.isBlank()?new DeterministicModels():new OpenAiModels(key,mapper,metrics);
     }
     @Bean
-    AnswerModel answerModel(@Value("${spring.ai.openai.api-key:}") String key, JsonMapper mapper) {
-        return key.isBlank()?new DeterministicModels():new OpenAiModels(key,mapper);
+    AnswerModel answerModel(@Value("${spring.ai.openai.api-key:}") String key, JsonMapper mapper, MeterRegistry metrics) {
+        return key.isBlank()?new DeterministicModels():new OpenAiModels(key,mapper,metrics);
     }
 }

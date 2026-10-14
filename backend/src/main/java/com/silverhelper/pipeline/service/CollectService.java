@@ -17,6 +17,7 @@ import com.silverhelper.pipeline.repository.BenefitStore.Existing;
 import com.silverhelper.pipeline.repository.BenefitStore.Target;
 import com.silverhelper.pipeline.repository.CollectRunStore;
 import com.silverhelper.pipeline.repository.RawStore;
+import com.silverhelper.pipeline.repository.RawStore.RawRow;
 import com.silverhelper.pipeline.repository.ReviewStore;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -34,6 +35,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.core.type.TypeReference;
 
 /**
  * 원천 1개 수집: 목록 전체 → 정규화 해시로 신규/변경/사라짐 판정 → 저장 → 상세(복지로)·지원조건(정부24) → 그룹 병합.
@@ -48,6 +50,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class CollectService {
 
 	private static final Logger log = LoggerFactory.getLogger(CollectService.class);
+	private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() { };
 
 	public record Report(Source source, CollectRunStatus status, CollectRunStore.Counts counts, List<Long> newIds,
 			int detailsPending, List<String> errors) {
@@ -204,6 +207,10 @@ public class CollectService {
 	private void saveListItem(Source source, String sourceId, SourceRecord item, Existing existing,
 			OffsetDateTime now, LocalDate today, Tally tally, List<Long> newIds) {
 		String hash = ContentHasher.hash(source, RawKind.LIST, item.fields());
+		if (existing != null && existing.listHash() != null && !hash.equals(existing.listHash())) {
+			hash = preserveEquivalentHash(source, RawKind.LIST, item.fields(),
+					raws.find(existing.id(), RawKind.LIST, existing.listHash()).orElse(null), hash);
+		}
 		String payload = jsonMapper.writeValueAsString(item.fields());
 		var listFields = SourceMapper.listFields(source, item);
 		if (existing == null) {
@@ -289,6 +296,8 @@ public class CollectService {
 	private void saveDetail(Source source, long benefitId, SourceRecord detail) {
 		OffsetDateTime now = OffsetDateTime.now(clock);
 		String hash = ContentHasher.hash(source, RawKind.DETAIL, detail.fields());
+		hash = preserveEquivalentHash(source, RawKind.DETAIL, detail.fields(),
+				raws.findLatest(benefitId, RawKind.DETAIL).orElse(null), hash);
 		benefits.applyDetail(benefitId, SourceMapper.detailFields(source, detail), now, now.toLocalDate());
 		raws.upsert(benefitId, RawKind.DETAIL, hash, jsonMapper.writeValueAsString(detail.fields()), detail.rawBody(), now);
 		benefits.setContentHash(benefitId, hash);
@@ -357,6 +366,15 @@ public class CollectService {
 
 	private static SourceRecord emptyConditions(String serviceId) {
 		return new SourceRecord(Map.of("서비스ID", serviceId), "{}");
+	}
+
+	/** 구형 전체 필드 해시라도 표시·AI 입력 내용이 같으면 기존 버전을 유지한다. */
+	private String preserveEquivalentHash(Source source, RawKind kind, Map<String, Object> current,
+			RawRow previous, String newHash) {
+		if (previous == null || newHash.equals(previous.contentHash())) return newHash;
+		Map<String, Object> previousFields = jsonMapper.readValue(previous.payload(), MAP);
+		return ContentHasher.hash(source, kind, previousFields).equals(newHash)
+				? previous.contentHash() : newHash;
 	}
 
 	private WelfareClient welfareClient(Source source) {

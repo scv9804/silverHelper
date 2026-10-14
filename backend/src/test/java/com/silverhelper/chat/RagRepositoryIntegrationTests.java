@@ -43,6 +43,23 @@ class RagRepositoryIntegrationTests {
                 .source().basis().updatePending()).isTrue();
     }
 
+    @Test
+    void 빈_원문_완료_표식은_다음_조회에서_제외하고_검색_근거가_되지_않는다() {
+        long id=benefit("ACTIVE","empty-hash","empty-hash");
+        jdbc.update("""
+                insert into benefit_raw(benefit_id,kind,content_hash,payload,raw_body,first_seen_at,last_seen_at)
+                values (?, 'DETAIL', 'empty-hash', '{}'::jsonb, '', now(), now())
+                """,id);
+        assertThat(repository.missing("integration",200)).extracting(Document::id).contains(id);
+
+        repository.save(new Document(id,"empty-hash",""),"integration",-1,"",new float[1536]);
+
+        assertThat(repository.missing("integration",200)).extracting(Document::id).doesNotContain(id);
+        float[] query=new float[1536];
+        query[0]=1;
+        assertThat(repository.search("integration",query)).extracting(hit -> hit.source().benefitId()).doesNotContain(id);
+    }
+
     private long benefit(String status,String contentHash,String verifiedHash) {
         long group=jdbc.queryForObject("insert into benefit_group default values returning id",Long.class);
         return jdbc.queryForObject("""
