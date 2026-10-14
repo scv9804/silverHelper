@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @WebMvcTest(controllers=AuthSecurityTests.TestApi.class)
-@Import({AuthSecurity.class,SecurityConfig.class,AuthSecurityTests.TestApi.class})
+@Import({AuthKeyConfig.class,AuthSecurity.class,SecurityConfig.class,AuthSecurityTests.TestApi.class})
 class AuthSecurityTests {
     @Autowired MockMvc mvc;
     @MockitoBean AuthenticationSuccessHandler oauthSuccess;

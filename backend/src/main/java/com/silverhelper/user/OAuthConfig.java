@@ -71,7 +71,7 @@ public class OAuthConfig {
                 Map<?,?> account=attributes.get("kakao_account") instanceof Map<?,?> m?m:Map.of();
                 Map<?,?> profile=account.get("profile") instanceof Map<?,?> m?m:Map.of();
                 name=String.valueOf(profile.containsKey("nickname")?profile.get("nickname"):"Kakao 사용자");
-                email=(String)account.get("email");
+                email=Boolean.TRUE.equals(account.get("is_email_verified"))?(String)account.get("email"):null;
             }
             UserStore.User user=users.social(provider,providerId,name,email);
             String code=auth.authorizationCode(user.id());
