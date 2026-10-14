@@ -13,14 +13,18 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
 class NotificationServiceTests {
     private static final Clock CLOCK=Clock.fixed(Instant.parse("2026-10-14T00:00:00Z"),ZoneId.of("Asia/Seoul"));
     private Candidate candidate() {
+        return candidate(null,true,false);
+    }
+    private Candidate candidate(LocalDate deadline,boolean newEnabled,boolean deadlineEnabled) {
         return new Candidate(1,2,3,"test@example.com","부모","기초연금","https://www.gov.kr/",
-                null,null,LocalDate.of(2026,10,14),null,null,7,true,false,75,"서울특별시",null,
+                null,null,LocalDate.of(2026,10,14),null,LocalDate.of(2026,10,10),deadline,7,newEnabled,deadlineEnabled,75,"서울특별시",null,
                 null,null,null,null,null,null,null,null,null,
                 null,null,null,null,null,null,null,null,null,null,null);
     }
@@ -31,6 +35,19 @@ class NotificationServiceTests {
         new NotificationService(repository,mail,CLOCK,"sender@example.com").deliverDaily();
         verify(mail).send(any(SimpleMailMessage.class));
         verify(repository).sent(42L);
+        ArgumentCaptor<SimpleMailMessage> sent=ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mail).send(sent.capture());
+        org.assertj.core.api.Assertions.assertThat(sent.getValue().getText()).contains("기준일: 2026-10-10").doesNotContain("마감일:");
+    }
+    @Test void 마감_임박_메일에는_실제_근거일과_마감일을_쓴다() {
+        var repository=mock(NotificationRepository.class); var mail=mock(JavaMailSender.class);
+        when(repository.candidates(any())).thenReturn(List.of(candidate(LocalDate.of(2026,10,17),false,true)));
+        when(repository.reserve(any(),anyString(),anyString())).thenReturn(42L);
+        new NotificationService(repository,mail,CLOCK,"sender@example.com").deliverDaily();
+        ArgumentCaptor<SimpleMailMessage> sent=ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mail).send(sent.capture());
+        org.assertj.core.api.Assertions.assertThat(sent.getValue().getText())
+                .contains("기준일: 2026-10-10", "마감일: 2026-10-17");
     }
     @Test void SMTP_예외는_수신_여부를_확인할_때까지_보류한다() {
         var repository=mock(NotificationRepository.class); var mail=mock(JavaMailSender.class);

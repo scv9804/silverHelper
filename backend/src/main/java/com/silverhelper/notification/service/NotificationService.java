@@ -72,7 +72,8 @@ public class NotificationService {
             message.setTo(c.email());
             message.setSubject("[실버헬퍼] " + label + ": " + c.benefitName());
             message.setText(c.profileName()+"님을 위한 " + label + " 혜택입니다.\n"
-                    +c.benefitName()+"\n공식 출처: "+c.sourceUrl()+"\n기준일: "+LocalDate.now(clock));
+                    +c.benefitName()+"\n공식 출처: "+c.sourceUrl()+"\n기준일: "+c.basisDate()
+                    +(kind.equals("DEADLINE") ? "\n마감일: "+c.deadline() : ""));
             sender.send(message);
             repository.sent(id);
         } catch (RuntimeException ex) {

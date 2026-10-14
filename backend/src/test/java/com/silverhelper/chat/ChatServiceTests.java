@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.silverhelper.chat.dto.ChatDtos;
 import com.silverhelper.chat.repository.RagRepository;
@@ -25,6 +27,7 @@ class ChatServiceTests {
         assertThat(answer.answer()).isEqualTo("모름");
         assertThat(answer.sources()).isEmpty();
         assertThat(answer.mock()).isTrue();
+        verify(repository,never()).missing(anyString(),anyInt());
     }
 
     @Test void 근거가_있으면_출처와_기준을_반환한다() {
@@ -37,5 +40,12 @@ class ChatServiceTests {
         assertThat(answer.mock()).isTrue();
         assertThat(answer.sources()).containsExactly(source);
         assertThat(answer.answer()).startsWith("모의 응답:");
+    }
+
+    @Test void 스케줄_색인에서만_누락_문서를_조회한다() {
+        RagRepository repository=Mockito.mock(RagRepository.class);
+        when(repository.missing(anyString(),anyInt())).thenReturn(List.of());
+        new ChatService(repository,new DeterministicModels(),new DeterministicModels()).index();
+        verify(repository).missing(anyString(),anyInt());
     }
 }

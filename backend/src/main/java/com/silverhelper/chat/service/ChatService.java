@@ -41,7 +41,6 @@ public class ChatService {
     }
 
     public ChatDtos.Answer ask(String question) {
-        indexMissing(200);
         List<Hit> hits=repository.search(embedding.name(),embedding.embed(question));
         List<Hit> relevant=hits.stream().filter(h->h.distance() < (embedding.mock()?0.85:0.65))
                 .filter(h->overlaps(question,h.content())).limit(4).toList();
