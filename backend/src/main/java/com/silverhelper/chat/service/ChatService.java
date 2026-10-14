@@ -27,7 +27,11 @@ public class ChatService {
 
     private void indexMissing(int limit) {
         for (var doc:repository.missing(embedding.name(),limit)) {
-            if (doc.content().isBlank()) continue;
+            if (doc.content().isBlank()) {
+                // 완료 표식도 검증 해시에 묶어, 원문이 바뀌면 다시 색인한다.
+                repository.save(doc,embedding.name(),-1,"",new float[1536]);
+                continue;
+            }
             float[] marker=null;
             int chunk=0;
             for (int start=0;start<doc.content().length();start+=1800) {

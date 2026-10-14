@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 
 import com.silverhelper.chat.dto.ChatDtos;
 import com.silverhelper.chat.repository.RagRepository;
+import com.silverhelper.chat.repository.RagRepository.Document;
 import com.silverhelper.chat.repository.RagRepository.Hit;
 import com.silverhelper.chat.service.ChatService;
 import com.silverhelper.chat.service.DeterministicModels;
@@ -47,5 +48,21 @@ class ChatServiceTests {
         when(repository.missing(anyString(),anyInt())).thenReturn(List.of());
         new ChatService(repository,new DeterministicModels(),new DeterministicModels()).index();
         verify(repository).missing(anyString(),anyInt());
+    }
+
+    @Test void 빈_문서는_완료_표식을_남기고_임베딩을_호출하지_않는다() {
+        RagRepository repository=Mockito.mock(RagRepository.class);
+        var embedding=Mockito.mock(com.silverhelper.chat.service.EmbeddingModel.class);
+        when(embedding.name()).thenReturn("test-model");
+        Document empty=new Document(7L,"verified-hash","  ");
+        when(repository.missing("test-model",200)).thenReturn(List.of(empty));
+
+        new ChatService(repository,embedding,new DeterministicModels()).index();
+
+        org.mockito.ArgumentCaptor<float[]> vector=org.mockito.ArgumentCaptor.forClass(float[].class);
+        verify(repository).save(org.mockito.ArgumentMatchers.eq(empty),org.mockito.ArgumentMatchers.eq("test-model"),
+                org.mockito.ArgumentMatchers.eq(-1),org.mockito.ArgumentMatchers.eq(""),vector.capture());
+        assertThat(vector.getValue()).hasSize(1536).containsOnly(0f);
+        verify(embedding,never()).embed(anyString());
     }
 }
