@@ -55,10 +55,29 @@ public final class CrossValidator {
 			return new Decision(ReviewReason.MODEL_MISMATCH, modelDiffs, Map.of());
 		}
 		List<Difference> conflicts = structuredConflicts(claude, facts);
+		conflicts.addAll(summaryConflicts(claude));
+		conflicts.addAll(summaryConflicts(gpt));
 		if (!conflicts.isEmpty()) {
 			return new Decision(ReviewReason.STRUCTURED_MISMATCH, conflicts, Map.of());
 		}
 		return new Decision(null, List.of(), fieldSources(claude, facts));
+	}
+
+	/** 자유 문장에서 확실히 읽히는 조건만 대조한다. 해석이 불명확하면 검토로 보낸다. */
+	private static List<Difference> summaryConflicts(EligibilityResult result) {
+		String summary = result.conditionsSummary();
+		if (summary == null || summary.isBlank()) return List.of();
+		List<Difference> differences = new ArrayList<>();
+		java.util.regex.Matcher age = java.util.regex.Pattern.compile("(?:만\\s*)?(\\d{1,3})\\s*세\\s*이상").matcher(summary);
+		if (age.find() && (result.minAge() == null || result.minAge() != Integer.parseInt(age.group(1))))
+			differences.add(new Difference("conditionsSummary", summary, summary, "minAge=" + result.minAge()));
+		java.util.regex.Matcher max = java.util.regex.Pattern.compile("(?:만\\s*)?(\\d{1,3})\\s*세\\s*이하").matcher(summary);
+		if (max.find() && (result.maxAge() == null || result.maxAge() != Integer.parseInt(max.group(1))))
+			differences.add(new Difference("conditionsSummary", summary, summary, "maxAge=" + result.maxAge()));
+		if ((summary.contains("장애인 제외") && Boolean.TRUE.equals(result.requiresDisability()))
+				|| (summary.contains("1인 가구 제외") && Boolean.TRUE.equals(result.requiresSingleHousehold())))
+			differences.add(new Difference("conditionsSummary", summary, summary, "구조화 자격과 모순"));
+		return differences;
 	}
 
 	static List<Difference> structuredConflicts(EligibilityResult r, StructuredFacts f) {
@@ -99,6 +118,7 @@ public final class CrossValidator {
 		}
 		if (r.conditionsSummary() != null) {
 			sources.put("conditionsSummary", "AI");
+			sources.put("_summaryReview", "원문 확인");
 		}
 		return sources;
 	}

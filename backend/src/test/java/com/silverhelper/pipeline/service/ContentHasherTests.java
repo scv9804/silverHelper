@@ -1,5 +1,8 @@
 package com.silverhelper.pipeline.service;
 
+import com.silverhelper.pipeline.domain.Source;
+import com.silverhelper.pipeline.domain.RawKind;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.LinkedHashMap;
@@ -9,6 +12,14 @@ import org.junit.jupiter.api.Test;
 
 // 정규화 해시: 조회수 제외, CR·공백·가운뎃점 정규화, 필드 순서 무관 (public-api.md §8)
 class ContentHasherTests {
+
+	@Test
+	void 원천별_표시와_AI_입력_외_필드는_변경으로_보지_않는다() {
+		String a=ContentHasher.hash(Source.GOV24,RawKind.LIST,Map.of("서비스명","노인 지원","inqNum",1));
+		String b=ContentHasher.hash(Source.GOV24,RawKind.LIST,Map.of("서비스명","노인 지원","inqNum",999,"임의메타","변경"));
+		String c=ContentHasher.hash(Source.GOV24,RawKind.LIST,Map.of("서비스명","다른 지원","inqNum",1));
+		assertThat(a).isEqualTo(b).isNotEqualTo(c);
+	}
 
 	@Test
 	void 조회수만_다르면_같은_해시() {
