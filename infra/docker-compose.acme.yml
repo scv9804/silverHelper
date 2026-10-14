@@ -1,0 +1,5 @@
+# Bootstrap the HTTP-01 webroot before the first TLS certificate exists.
+services:
+  web:
+    volumes:
+      - ${ACME_WEBROOT_DIR:?Set ACME_WEBROOT_DIR in infra/.env}:/var/www/acme:ro
