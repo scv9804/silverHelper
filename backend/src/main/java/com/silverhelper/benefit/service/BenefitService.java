@@ -5,6 +5,8 @@ import com.silverhelper.benefit.dto.BenefitDtos.*;
 import com.silverhelper.common.code.WelfareCode;
 import com.silverhelper.common.exception.*;
 import com.silverhelper.common.response.PageResponse;
+import com.silverhelper.pipeline.service.SourceMapper;
+import com.silverhelper.pipeline.service.DevSampleMarker;
 import jakarta.persistence.EntityManager;
 import java.util.*;
 import java.util.stream.*;
@@ -39,8 +41,9 @@ public class BenefitService {
         MapSqlParameterSource args = new MapSqlParameterSource();
         StringBuilder where = new StringBuilder();
         if (ctpv != null) {
-            where.append(" and (b.ctpv_name is null or b.ctpv_name=:ctpv)");
+            where.append(" and (b.ctpv_name is null or b.ctpv_name=:ctpv or b.ctpv_name=:unknownRegion)");
             args.addValue("ctpv", ctpv);
+            args.addValue("unknownRegion", SourceMapper.REGION_UNKNOWN);
             if (sgg != null) {
                 where.append(" and (b.sgg_name is null or b.sgg_name=:sgg)");
                 args.addValue("sgg", sgg);
@@ -99,8 +102,9 @@ public class BenefitService {
                 b.applyContent, b.enforceStartDate, b.enforceEndDate, b.contact, refs, others);
     }
     public MatchPage match(Profile profile, int page, int size) {
-        MapSqlParameterSource args = new MapSqlParameterSource().addValue("ctpv", profile.ctpvName()).addValue("age", profile.age());
-        String query = FILTERED + " and (b.ctpv_name is null or b.ctpv_name=:ctpv)" +
+        MapSqlParameterSource args = new MapSqlParameterSource().addValue("ctpv", profile.ctpvName()).addValue("age", profile.age())
+                .addValue("unknownRegion", SourceMapper.REGION_UNKNOWN);
+        String query = FILTERED + " and (b.ctpv_name is null or b.ctpv_name=:ctpv or b.ctpv_name=:unknownRegion)" +
                 " and (e.min_age is null or e.min_age<=:age) and (e.max_age is null or e.max_age>=:age)";
         if (profile.sggName() != null) {
             query += " and (b.sgg_name is null or b.sgg_name=:sgg)";
@@ -110,7 +114,13 @@ public class BenefitService {
         Batch candidates = load(ids, false);
         List<Map.Entry<Benefit, EligibilityMatcher.Result>> matched = ids.stream()
                 .map(id -> { Benefit b = candidates.benefits.get(id);
-                    return Map.entry(b, EligibilityMatcher.match(candidates.eligibilities.get(id), profile, b.ctpvName, b.sggName)); })
+                    EligibilityMatcher.Result result = EligibilityMatcher.match(candidates.eligibilities.get(id), profile, b.ctpvName, b.sggName);
+                    if (sample(b) && !result.excluded()) {
+                        List<String> checks = new ArrayList<>(result.checkItems());
+                        checks.add("개발용 샘플 데이터입니다. 자격 조건과 원문을 확인하세요.");
+                        result = new EligibilityMatcher.Result(false, List.copyOf(checks));
+                    }
+                    return Map.entry(b, result); })
                 .filter(x -> !x.getValue().excluded())
                 .sorted(Comparator.<Map.Entry<Benefit, EligibilityMatcher.Result>>comparingInt(x -> x.getValue().checkItems().isEmpty() ? 0 : 1)
                         .thenComparingInt(x -> regionRank(x.getKey())).thenComparing(x -> x.getKey().name)
@@ -133,8 +143,9 @@ public class BenefitService {
         Map<String, SortedSet<String>> regions = new TreeMap<>();
         jdbc.getJdbcTemplate().query("select distinct ctpv_name,sgg_name from benefit where status='ACTIVE' and verified_hash is not null and ctpv_name is not null", rs -> {
             SortedSet<String> names = regions.computeIfAbsent(rs.getString(1), k -> new TreeSet<>());
-            if (rs.getString(2) != null) names.add(rs.getString(2));
+            if (!SourceMapper.REGION_UNKNOWN.equals(rs.getString(1)) && rs.getString(2) != null) names.add(rs.getString(2));
         });
+        regions.remove(SourceMapper.REGION_UNKNOWN);
         return regions.entrySet().stream().map(e -> new RegionOption(e.getKey(), List.copyOf(e.getValue()))).toList();
     }
     private Summary summary(Benefit b) { return summary(b, load(List.of(b.id), true)); }
@@ -144,10 +155,14 @@ public class BenefitService {
                 : new Eligibility(e.minAge,e.maxAge,e.ltcRequired,e.ltcGrades == null ? null : Arrays.asList(e.ltcGrades),
                 e.incomeMaxMedianPct,e.requiresBasicLivelihood,e.requiresNearPoverty,e.requiresBasicPension,
                 e.requiresDisability,e.requiresVeteran,e.requiresSingleHousehold,e.conditionsSummary);
-        return new Summary(b.id,b.groupId,b.name,b.summary,b.source,b.sourceUrl,b.agencyName,
+        String summary = sample(b) ? "개발용 샘플 데이터 · 자격 조건 미검증. " + (b.summary == null ? "" : b.summary) : b.summary;
+        return new Summary(b.id,b.groupId,b.name,summary,b.source,b.sourceUrl,b.agencyName,
                 b.ctpvName == null ? null : new Region(b.ctpvName,b.sggName),b.provisionType,b.supportCycle,
                 b.onlineApply,batch.tags.getOrDefault(b.id,List.of()),dto,new Basis(b.lastCollectedAt,b.sourceModifiedAt,b.baseYear,
-                !Objects.equals(b.contentHash,b.verifiedHash)));
+                !Objects.equals(b.contentHash,b.verifiedHash) && !sample(b)));
+    }
+    private static boolean sample(Benefit b) {
+        return DevSampleMarker.matches(b.source, b.sourceId, b.verifiedHash);
     }
     private Batch load(List<Long> ids, boolean withTags) {
         if (ids.isEmpty()) return new Batch(Map.of(),Map.of(),Map.of());

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class UserStore {
+    static final String LOCAL_ADMIN_PREFIX = "#local-admin#";
     private final JdbcTemplate jdbc;
 
     public UserStore(JdbcTemplate jdbc) { this.jdbc = jdbc; }
@@ -35,6 +36,15 @@ public class UserStore {
     }
     public boolean isDev(long id) {
         return Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from social_account where user_id=? and provider='DEV')",Boolean.class,id));
+    }
+    public boolean isLocalAdmin(long id) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from social_account where user_id=? and provider='DEV' and provider_user_id like '#local-admin#%')",Boolean.class,id));
+    }
+    @Transactional
+    public User localAdmin(String name) {
+        User user = social("DEV", LOCAL_ADMIN_PREFIX + name, name, null);
+        jdbc.update("update user_account set role='ADMIN' where id=?", user.id());
+        return new User(user.id(), user.displayName(), user.email(), "ADMIN");
     }
     @Transactional
     public User social(String provider, String providerId, String name, String email) {

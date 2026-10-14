@@ -22,6 +22,7 @@ public class AuthService {
     private final StringRedisTemplate redis;
     private final JwtEncoder encoder;
     private final boolean secureCookie;
+    private final boolean localProfile;
     private final SecureRandom random = new SecureRandom();
 
     public record Token(String accessToken, String tokenType, long expiresIn, UserStore.User user) {}
@@ -30,6 +31,7 @@ public class AuthService {
     public AuthService(UserStore users, StringRedisTemplate redis, JwtEncoder encoder, Environment environment) {
         this.users=users; this.redis=redis; this.encoder=encoder;
         this.secureCookie=environment.matchesProfiles("prod") || !environment.matchesProfiles("local", "test");
+        this.localProfile=environment.matchesProfiles("local") && !environment.matchesProfiles("prod");
     }
     public String authorizationCode(long userId) {
         String code=secret();
@@ -52,7 +54,8 @@ public class AuthService {
         if (raw!=null && !raw.isBlank()) redis.delete("auth:refresh:"+hash(raw));
     }
     public Issued issue(UserStore.User user) {
-        if (users.isDev(user.id())) user=new UserStore.User(user.id(),user.displayName(),user.email(),"USER");
+        if (users.isDev(user.id()) && (!localProfile || !users.isLocalAdmin(user.id())))
+            user=new UserStore.User(user.id(),user.displayName(),user.email(),"USER");
         Instant now=Instant.now();
         JwtClaimsSet claims=JwtClaimsSet.builder().subject(Long.toString(user.id())).claim("role",user.role())
                 .id(UUID.randomUUID().toString()).issuedAt(now).expiresAt(now.plus(ACCESS_LIFETIME)).build();

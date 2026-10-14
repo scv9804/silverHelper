@@ -70,6 +70,10 @@ class SourceMapperTests {
 		assertThat(f.ctpvName()).isEqualTo("경기도");
 		assertThat(f.sggName()).isEqualTo("양주시");
 		assertThat(f.sourceModifiedAt().toLocalDate()).isEqualTo(LocalDate.of(2026, 10, 13));
+		assertThat(f.tags()).doesNotContain(new TagCode("THEME", "130"));
+		ListFields health = SourceMapper.listFields(Source.LOCAL,
+				WelfareXmlParser.parseList(Source.LOCAL, Fixtures.bytes("local-list.xml")).items().get(1));
+		assertThat(health.tags()).doesNotContain(new TagCode("THEME", "130"));
 	}
 
 	@Test
@@ -85,6 +89,9 @@ class SourceMapperTests {
 		assertThat(national.ctpvName()).isNull();
 		assertThat(national.tags()).contains(new TagCode("THEME", "120"));
 		assertThat(SourceMapper.gov24Region("광역시도", "서울특별시")).containsExactly("서울특별시", null);
+		assertThat(SourceMapper.gov24Region("시군구", "경상북도 경주시")).containsExactly("경상북도", "경주시");
+		assertThat(SourceMapper.gov24Region("시군구", "경주시")).containsExactly("경상북도", "경주시");
+		assertThat(SourceMapper.gov24Region("시군구", "알 수 없는 기관")).containsExactly("지역 확인 필요", null);
 	}
 
 	@Test

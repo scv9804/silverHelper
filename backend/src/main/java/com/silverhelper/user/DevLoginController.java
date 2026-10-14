@@ -19,6 +19,9 @@ public class DevLoginController {
     @PostMapping("/api/dev/login")
     public ResponseEntity<ApiResponse<AuthService.Token>> login(@Valid @RequestBody Login body) {
         String name=body.name().trim();
+        if (name.startsWith(UserStore.LOCAL_ADMIN_PREFIX)) {
+            return ResponseEntity.badRequest().build();
+        }
         UserStore.User user=users.social("DEV",name,name,null);
         // 개발 계정의 DB 역할이 변경되어도 관리자 토큰을 발급하지 않는다.
         AuthService.Issued issued=auth.issue(new UserStore.User(user.id(),user.displayName(),user.email(),"USER"));

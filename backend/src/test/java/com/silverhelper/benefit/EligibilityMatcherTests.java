@@ -7,6 +7,14 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class EligibilityMatcherTests {
+    @Test void 지역_미확인_사업은_전국으로_확정하지_않는다() {
+        Profile seoul = new Profile(75, "서울특별시", "종로구", null, null, null,
+                null, null, null, null, null, null);
+        var result = EligibilityMatcher.match(null, seoul, "지역 확인 필요", null);
+        assertThat(result.excluded()).isFalse();
+        assertThat(result.level()).isEqualTo("CHECK_NEEDED");
+        assertThat(result.checkItems()).contains("사업 지역을 확인하세요.");
+    }
     private Profile profile(Integer grade, Boolean noGrade, Integer income, Boolean pension) {
         return new Profile(78,"서울특별시","강서구",grade,noGrade,income,null,null,pension,null,null,null);
     }
