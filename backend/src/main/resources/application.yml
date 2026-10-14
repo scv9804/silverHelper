@@ -1,8 +1,6 @@
 spring:
   application:
     name: silver-helper
-  profiles:
-    default: local
   config:
     # 루트의 .env 파일을 설정값으로 읽는다 (backend 폴더에서 실행 기준)
     import: optional:file:../.env[.properties]
