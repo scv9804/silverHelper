@@ -96,6 +96,7 @@ export type Region = { ctpvName: string; sggNames: string[] };
 export type Me = { id: number; displayName: string; email: string | null; role: "USER" | "ADMIN" };
 export type AuthToken = { accessToken: string; tokenType: "Bearer"; expiresIn: number; user: Me };
 export type SavedProfile = Profile & { id: number; name: string };
+export type NotificationSettings = { emailEnabled: boolean; newBenefitEnabled: boolean; deadlineEnabled: boolean; deadlineDays: number };
 export type ReviewStatus = "PENDING" | "APPROVED" | "REJECTED" | "RESOLVED";
 export type ReviewReason = "MODEL_MISMATCH" | "SCHEMA_INVALID" | "STRUCTURED_MISMATCH" | "GROUP_CANDIDATE" | "SOURCE_REMOVED" | "OTHER";
 export type ReviewSummary = { id: number; benefitId: number; benefitName: string; source: Benefit["source"]; reason: ReviewReason; status: ReviewStatus; createdAt: string; resolvedAt: string | null; resolvedBy: string | null };
@@ -126,13 +127,16 @@ let refreshInFlight: Promise<AuthToken> | null = null;
 export function refreshToken(): Promise<AuthToken> {
   if (!refreshInFlight) {
     const version = accessVersion;
-    refreshInFlight = fetch("/api/auth/refresh", { method: "POST", credentials: "same-origin" })
+    const perform = () => fetch("/api/auth/refresh", { method: "POST", credentials: "same-origin" })
       .then((response) => parseResponse<AuthToken>(response))
       .then((token) => {
         if (version !== accessVersion) throw new StaleRefreshError("Session changed during refresh");
         setAccessToken(token.accessToken);
         return token;
-      })
+      });
+    // The refresh cookie rotates once. Serialize refreshes across open tabs.
+    const locks = typeof navigator === "undefined" ? undefined : navigator.locks;
+    refreshInFlight = (locks ? locks.request("silverhelper-refresh", perform) : perform())
       .finally(() => { refreshInFlight = null; });
   }
   return refreshInFlight;

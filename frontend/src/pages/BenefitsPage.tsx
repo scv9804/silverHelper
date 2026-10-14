@@ -4,11 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type Benefit, type Codes, type Page, type Region } from "../api";
 import { StateView } from "../components/StateView";
 import { Card } from "../components/BenefitCard";
+import { pageSizes, usePageSize } from "../page-size";
 export function BenefitsPage() {
   const [params, setParams] = useSearchParams();
   const [draft, setDraft] = useState(params.get("keyword") || "");
   const [ageDraft, setAgeDraft] = useState(params.get("age") || "");
   const [incomeDraft, setIncomeDraft] = useState(params.get("incomeMedianPct") || "");
+  const { size, changeSize } = usePageSize();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const { data: codes } = useQuery({
     queryKey: ["codes"],
     queryFn: () => api<Codes>("/api/codes"),
@@ -16,10 +19,11 @@ export function BenefitsPage() {
   const { data: regions } = useQuery({
     queryKey: ["regions"],
     queryFn: () => api<Region[]>("/api/regions"),
+    staleTime: Infinity,
   });
   const { data, isPending, error } = useQuery({
-    queryKey: ["benefits", params.toString()],
-    queryFn: () => api<Page<Benefit>>(`/api/benefits?${params.toString()}`),
+    queryKey: ["benefits", params.toString(), size],
+    queryFn: () => api<Page<Benefit>>(`/api/benefits?${new URLSearchParams([...params, ["size", String(size)]]).toString()}`),
   });
   const change = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -28,6 +32,7 @@ export function BenefitsPage() {
     next.delete("page");
     setParams(next);
   };
+  const reset = () => { setDraft(""); setAgeDraft(""); setIncomeDraft(""); setParams(new URLSearchParams()); };
   return (
     <section>
       <div className="page-head">
@@ -42,7 +47,7 @@ export function BenefitsPage() {
           change("keyword", draft.trim());
         }}
       >
-        <label>
+        <div className="search-row"><label>
           검색어
           <input
             value={draft}
@@ -54,6 +59,9 @@ export function BenefitsPage() {
         <button className="secondary" type="submit">
           검색
         </button>
+        <button className="secondary" type="button" onClick={reset}>초기화</button></div>
+        <button className="secondary filter-toggle" type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>상세 필터 {filtersOpen ? "접기" : "펼치기"}</button>
+        <div className={`filter-grid ${filtersOpen ? "open" : ""}`}>
         <label>
           나이
           <input
@@ -132,7 +140,9 @@ export function BenefitsPage() {
             ))}
           </select>
         </label>
+        </div>
       </form>
+      <label className="page-size">몇 개씩 보기<select value={size} onChange={(event) => { changeSize(Number(event.target.value)); const next = new URLSearchParams(params); next.delete("page"); setParams(next); }}>{pageSizes.map((count) => <option key={count} value={count}>{count}개</option>)}</select></label>
       <StateView
         loading={isPending}
         error={error}

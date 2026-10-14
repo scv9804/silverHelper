@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Benefit } from "../api";
 import { Basis } from "./Basis";
+import { SaveBenefit } from "./SaveBenefit";
 export function Card({
   benefit,
   checkItems,
@@ -12,7 +13,7 @@ export function Card({
     <article className="card">
       <div className="eyebrow">
         {benefit.tags.map((tag) => tag.name).join(" · ")} ·{" "}
-        {benefit.region?.ctpvName || "전국"}
+        {benefit.region?.ctpvName || (benefit.source === "LOCAL" || (benefit.agencyName && /시|도|군|구/.test(benefit.agencyName)) ? "지역 확인 필요" : "전국")}
       </div>
       <h3>
         <Link to={`/benefits/${benefit.id}`}>{benefit.name}</Link>
@@ -32,6 +33,7 @@ export function Card({
       <Link className="text-link" to={`/benefits/${benefit.id}`}>
         자세히 보기 →
       </Link>
+      <SaveBenefit id={benefit.id} />
     </article>
   );
 }

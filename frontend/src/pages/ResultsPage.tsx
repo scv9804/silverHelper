@@ -6,13 +6,15 @@ import { useProfile } from "../store";
 import { StateView } from "../components/StateView";
 import { Card } from "../components/BenefitCard";
 import { note } from "../note";
+import { pageSizes, usePageSize } from "../page-size";
 export function ResultsPage() {
   const profile = useProfile((state) => state.profile);
   const [page, setPage] = useState(0);
+  const { size, changeSize } = usePageSize();
   const { data, isPending, error } = useQuery({
-    queryKey: ["match", profile, page],
+    queryKey: ["match", profile, page, size],
     queryFn: () =>
-      api<MatchPage>(`/api/benefits/match?page=${page}&size=5`, {
+      api<MatchPage>(`/api/benefits/match?page=${page}&size=${size}`, {
         method: "POST",
         body: JSON.stringify(profile),
       }),
@@ -37,6 +39,7 @@ export function ResultsPage() {
         error={error}
         empty={data?.content.length === 0}
       />
+      <label className="page-size">몇 개씩 보기<select value={size} onChange={(event) => { changeSize(Number(event.target.value)); setPage(0); }}>{pageSizes.map((count) => <option key={count} value={count}>{count}개</option>)}</select></label>
       {data && (
         <>
           <div className="summary">
