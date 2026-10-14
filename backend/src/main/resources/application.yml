@@ -78,3 +78,6 @@ spring:
       on-profile: prod
   jpa:
     show-sql: false
+
+server:
+  forward-headers-strategy: framework

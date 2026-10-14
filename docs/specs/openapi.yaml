@@ -528,7 +528,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /api/me/profiles/{id}:
+  /api/me/profiles/{profileId}:
     get:
       tags: [me]
       operationId: getMyProfile
@@ -669,7 +669,7 @@ components:
 
   parameters:
     ProfileId:
-      name: id
+      name: profileId
       in: path
       required: true
       schema: { type: integer, format: int64 }
@@ -759,7 +759,7 @@ components:
               fieldErrors:
                 - { field: age, message: 0 이상 120 이하여야 합니다. }
     NotFound:
-      description: 대상 없음 (`BENEFIT_NOT_FOUND`, `REVIEW_NOT_FOUND`)
+      description: 대상 없음 (`BENEFIT_NOT_FOUND`, `REVIEW_NOT_FOUND`, `NOT_FOUND`)
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ApiResponse' }
@@ -855,7 +855,7 @@ components:
         code:
           type: string
           description: 기계용 코드
-          enum: [INVALID_REQUEST, BENEFIT_NOT_FOUND, REVIEW_NOT_FOUND, REVIEW_ALREADY_RESOLVED, UNAUTHORIZED, FORBIDDEN, INTERNAL_ERROR]
+          enum: [INVALID_REQUEST, BENEFIT_NOT_FOUND, REVIEW_NOT_FOUND, NOT_FOUND, REVIEW_ALREADY_RESOLVED, UNAUTHORIZED, FORBIDDEN, INTERNAL_ERROR]
         message: { type: string, description: 사용자에게 보여줄 수 있는 한국어 메시지 }
         fieldErrors:
           type: array
