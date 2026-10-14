@@ -70,11 +70,13 @@ cp .env.example .env
 docker compose up -d
 
 # 3. 백엔드 (http://localhost:8080)
-cd backend && ./gradlew bootRun
+cd backend && SPRING_PROFILES_ACTIVE=local ./gradlew bootRun
 
 # 4. 프론트엔드 (http://localhost:5173)
 cd frontend && npm install && npm run dev
 ```
+
+PowerShell에서는 백엔드 실행 전에 `$env:SPRING_PROFILES_ACTIVE = 'local'`을 설정한다. 프로필을 지정하지 않으면 운영 안전 설정이 적용되어 32바이트 이상의 `JWT_SECRET`이 필요하고 개발용 로그인은 비활성화된다.
 
 ## AI CLI 개발 방식
 
