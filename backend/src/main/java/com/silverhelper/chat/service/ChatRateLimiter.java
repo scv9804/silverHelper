@@ -13,8 +13,8 @@ public class ChatRateLimiter {
     private static final DefaultRedisScript<Long> CHECK = new DefaultRedisScript<>("""
             local minute = tonumber(redis.call('GET', KEYS[1]) or '0')
             local day = tonumber(redis.call('GET', KEYS[2]) or '0')
-            if minute >= tonumber(ARGV[1]) then return 60 end
             if day >= tonumber(ARGV[2]) then return 86400 end
+            if minute >= tonumber(ARGV[1]) then return 60 end
             redis.call('INCR', KEYS[1])
             redis.call('EXPIREAT', KEYS[1], ARGV[3])
             redis.call('INCR', KEYS[2])

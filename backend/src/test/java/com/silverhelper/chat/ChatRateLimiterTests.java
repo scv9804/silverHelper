@@ -12,6 +12,7 @@ import com.silverhelper.chat.controller.ChatController;
 import com.silverhelper.chat.service.ChatRateLimitedException;
 import com.silverhelper.chat.service.ChatRateLimiter;
 import com.silverhelper.chat.service.ChatService;
+import com.silverhelper.common.exception.ErrorCode;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -43,5 +44,6 @@ class ChatRateLimiterTests {
         assertThat(response.getStatusCode().value()).isEqualTo(429);
         assertThat(response.getHeaders().getFirst("Retry-After")).isEqualTo("23");
         assertThat(response.getBody().error().code()).isEqualTo("CHAT_RATE_LIMITED");
+        assertThat(response.getBody().error().message()).isEqualTo(ErrorCode.CHAT_RATE_LIMITED.getMessage());
     }
 }

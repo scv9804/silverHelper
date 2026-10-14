@@ -7,7 +7,6 @@ import com.silverhelper.chat.service.ChatRateLimitedException;
 import com.silverhelper.common.exception.BusinessException;
 import com.silverhelper.common.exception.ErrorCode;
 import com.silverhelper.common.response.ApiResponse;
-import com.silverhelper.common.response.ErrorBody;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -15,7 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
-import java.util.List;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,7 +35,6 @@ public class ChatController {
     public ResponseEntity<ApiResponse<Void>> rateLimited(ChatRateLimitedException e) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header("Retry-After", Long.toString(e.retryAfterSeconds()))
-                .body(new ApiResponse<>(false, null,
-                        new ErrorBody("CHAT_RATE_LIMITED", e.getMessage(), List.of())));
+                .body(ApiResponse.fail(ErrorCode.CHAT_RATE_LIMITED));
     }
 }
