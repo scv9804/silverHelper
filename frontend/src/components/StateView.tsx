@@ -2,10 +2,12 @@ export function StateView({
   loading,
   error,
   empty,
+  emptyMessage,
 }: {
   loading: boolean;
   error: Error | null;
   empty?: boolean;
+  emptyMessage?: string;
 }) {
   if (loading)
     return (
@@ -22,7 +24,7 @@ export function StateView({
   if (empty)
     return (
       <p className="notice">
-        해당하는 혜택이 없습니다. 조건을 바꿔 다시 찾아보세요.
+        {emptyMessage || "해당하는 혜택이 없습니다. 조건을 바꿔 다시 찾아보세요."}
       </p>
     );
   return null;

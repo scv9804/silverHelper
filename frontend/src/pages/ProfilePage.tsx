@@ -28,7 +28,7 @@ export function ProfilePage() {
         }}
       >
         <h2>{editingThisUser ? `${editing?.name} 정보 수정` : "부모님 정보"}</h2>
-        <p className="muted">입력 내용은 이 기기에 임시 저장됩니다. {user && <>계정에 보관하려면 <Link to="/me">마이페이지에서 프로필을 저장</Link>하세요.</>}</p>
+        <p className="muted">{user ? <>현재 탭에서 입력을 유지합니다. 계정에 보관하려면 <Link to="/me">마이페이지에서 프로필을 저장</Link>하세요.</> : "입력 내용은 이 탭에 임시 저장되며 탭을 닫거나 로그아웃하면 지워집니다."}</p>
         <label>
           나이
           <input
@@ -36,7 +36,8 @@ export function ProfilePage() {
             required
             min="0"
             max="120"
-            value={profile.age}
+            value={profile.age || ""}
+            placeholder="나이를 입력하세요"
             onChange={(event) => update({ age: Number(event.target.value) })}
           />
         </label>

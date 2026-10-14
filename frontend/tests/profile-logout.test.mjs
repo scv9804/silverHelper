@@ -7,6 +7,12 @@ globalThis.localStorage = {
   setItem: (key, value) => values.set(key, value),
   removeItem: (key) => values.delete(key),
 };
+const sessionValues = new Map();
+globalThis.sessionStorage = {
+  getItem: (key) => sessionValues.get(key) ?? null,
+  setItem: (key, value) => sessionValues.set(key, value),
+  removeItem: (key) => sessionValues.delete(key),
+};
 globalThis.window = new EventTarget();
 
 const { initialProfile, useProfile } = await import("../src/store.ts");
@@ -23,9 +29,10 @@ function assertCleared() {
   assert.deepEqual(useProfile.getState().profile, initialProfile);
   assert.equal(useProfile.getState().editing, null);
   assert.equal(values.has("silverhelper-profile"), false);
+  assert.equal(sessionValues.has("silverhelper-guest-profile"), false);
 }
 
-test("초기 refresh가 실패해도 과거 저장 프로필은 복원되지 않고 수정은 메모리에만 둔다", async () => {
+test("초기 refresh 실패 뒤 비로그인 입력은 탭 세션에 남고 로그아웃 시 지워진다", async () => {
   const oldFetch = globalThis.fetch;
   globalThis.fetch = async () => new Response(
     JSON.stringify({ success: false, data: null, error: { code: "UNAUTHORIZED", message: "만료" } }),
@@ -36,6 +43,7 @@ test("초기 refresh가 실패해도 과거 저장 프로필은 복원되지 않
   assertCleared();
   sensitiveProfile();
   assert.equal(useProfile.getState().profile.incomeMedianPct, 45);
+  assert.equal(JSON.parse(sessionValues.get("silverhelper-guest-profile")).incomeMedianPct, 45);
   assert.equal(values.has("silverhelper-profile"), false);
   clearClientSession();
   assertCleared();
@@ -64,9 +72,31 @@ test("늦게 끝난 이전 계정 refresh가 새 로그인 토큰을 덮어쓰�
   }
 });
 
-test("다른 계정 로그인은 이전 프로필과 편집 대상을 지우고 다른 탭에 알린다", () => {
+test("로그인 직후 비로그인 입력은 유지하고 편집 대상만 지운다", () => {
+  useProfile.getState().reset();
   sensitiveProfile();
   beginClientSession("account-b-token");
+  assert.equal(useProfile.getState().profile.incomeMedianPct, 45);
+  assert.equal(useProfile.getState().editing, null);
+  assert.equal(useProfile.getState().guest, false);
+  assert.equal(sessionValues.has("silverhelper-guest-profile"), false);
+  assert.ok(values.get(SESSION_CHANGE_KEY).startsWith("login:"));
+  clearClientSession();
+  assertCleared();
+});
+
+test("서버 프로필 마지막 선택은 계정 ID에 묶이고 로그아웃 때 지워진다", async () => {
+  const { rememberProfile, lastProfileId } = await import("../src/store.ts");
+  rememberProfile(1, 42);
+  assert.equal(lastProfileId(1), 42);
+  assert.equal(lastProfileId(2), null);
+  clearClientSession();
+  assert.equal(lastProfileId(1), null);
+});
+
+test("다른 탭 로그아웃은 이전 입력을 지운다", () => {
+  sensitiveProfile();
+  clearClientSession();
   assertCleared();
   assert.ok(values.get(SESSION_CHANGE_KEY));
 });
@@ -111,4 +141,14 @@ test("세션 만료 뒤 refresh가 401이면 열린 화면의 민감 정보가 �
     globalThis.fetch = oldFetch;
     unsubscribe();
   }
+});
+
+test("목록 표시 개수는 허용 값만 탭 세션에 보관한다", async () => {
+  const { readPageSize, storePageSize } = await import("../src/page-size.ts");
+  sessionValues.clear();
+  assert.equal(readPageSize(), 20);
+  assert.equal(storePageSize(100), true);
+  assert.equal(readPageSize(), 100);
+  assert.equal(storePageSize(101), false);
+  assert.equal(readPageSize(), 100);
 });

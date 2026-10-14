@@ -1,5 +1,5 @@
 import { http, HttpResponse } from "msw";
-import type { AuthToken, ChatAnswer, Detail, Profile, SavedProfile } from "../api";
+import type { AuthToken, ChatAnswer, Detail, NotificationSettings, Profile, SavedProfile } from "../api";
 import { benefits, codes, regions } from "./data";
 
 const ok = <T>(data: T) =>
@@ -15,6 +15,8 @@ let signedIn = false;
 let mockName = "";
 let profiles: SavedProfile[] = [];
 let nextProfileId = 1;
+let savedBenefitIds: number[] = [];
+let notificationSettings: NotificationSettings = { emailEnabled: false, newBenefitEnabled: true, deadlineEnabled: true, deadlineDays: 7 };
 const token = (): AuthToken => ({ accessToken: "mock-access-token", tokenType: "Bearer", expiresIn: 900, user: { id: 1, displayName: mockName, email: null, role: "USER" } });
 const unauthorized = () => HttpResponse.json({ success: false, data: null, error: { code: "UNAUTHORIZED", message: "로그인이 필요합니다.", fieldErrors: [] } }, { status: 401 });
 export const handlers = [
@@ -27,6 +29,11 @@ export const handlers = [
   http.post("/api/me/profiles", async ({ request }) => { if (!signedIn) return unauthorized(); const body = await request.json() as Profile & { name: string }; const saved = { ...body, id: nextProfileId++ }; profiles = [...profiles, saved]; return HttpResponse.json({ success: true, data: saved, error: null }, { status: 201 }); }),
   http.put("/api/me/profiles/:id", async ({ request, params }) => { if (!signedIn) return unauthorized(); const body = await request.json() as Profile & { name: string }; const saved = { ...body, id: Number(params.id) }; profiles = profiles.map((item) => item.id === saved.id ? saved : item); return ok(saved); }),
   http.delete("/api/me/profiles/:id", ({ params }) => { if (!signedIn) return unauthorized(); profiles = profiles.filter((item) => item.id !== Number(params.id)); return new HttpResponse(null, { status: 204 }); }),
+  http.get("/api/me/saved-benefits", () => signedIn ? ok(savedBenefitIds) : unauthorized()),
+  http.post("/api/me/saved-benefits", async ({ request }) => { if (!signedIn) return unauthorized(); const { benefitId } = await request.json() as { benefitId: number }; if (!savedBenefitIds.includes(benefitId)) savedBenefitIds = [...savedBenefitIds, benefitId]; return new HttpResponse(null, { status: 204 }); }),
+  http.delete("/api/me/saved-benefits/:id", ({ params }) => { if (!signedIn) return unauthorized(); savedBenefitIds = savedBenefitIds.filter((id) => id !== Number(params.id)); return new HttpResponse(null, { status: 204 }); }),
+  http.get("/api/me/notification-settings", () => signedIn ? ok(notificationSettings) : unauthorized()),
+  http.put("/api/me/notification-settings", async ({ request }) => { if (!signedIn) return unauthorized(); notificationSettings = await request.json() as NotificationSettings; return ok(notificationSettings); }),
   http.post("/api/chat", async ({ request }) => { if (!signedIn) return unauthorized(); const { question } = await request.json() as { question: string }; const matching = benefits.find((item) => question.includes(item.name)); const answer: ChatAnswer = matching ? { answer: `가짜 응답: ${matching.name}의 공식 안내를 확인해 주세요.`, sources: [{ benefitId: matching.id, name: matching.name, sourceUrl: matching.sourceUrl, basis: matching.basis }], mock: true } : { answer: "모름", sources: [], mock: true }; return ok(answer); }),
   http.get("/api/regions", () => ok(regions)),
   http.get("/api/codes", () => ok(codes)),

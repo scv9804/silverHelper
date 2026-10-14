@@ -4,6 +4,7 @@ import { api, type Detail } from "../api";
 import { Basis } from "../components/Basis";
 import { StateView } from "../components/StateView";
 import { note } from "../note";
+import { SaveBenefit } from "../components/SaveBenefit";
 export function DetailPage() {
   const { id } = useParams();
   const { data, isPending, error } = useQuery({
@@ -35,6 +36,7 @@ export function DetailPage() {
             <h1>{data.name}</h1>
             <p>{data.summary}</p>
             <Basis benefit={data} />
+            <SaveBenefit id={data.id} />
             <p className="notice">{note}</p>
           </div>
           <div className="detail-grid">

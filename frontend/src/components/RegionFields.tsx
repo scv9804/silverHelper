@@ -12,6 +12,7 @@ export function RegionFields({
   const { data } = useQuery({
     queryKey: ["regions"],
     queryFn: () => api<Region[]>("/api/regions"),
+    staleTime: Infinity,
   });
   const cities = [...new Set(data?.map((r) => r.ctpvName) || [])];
   return (
