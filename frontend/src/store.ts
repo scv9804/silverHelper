@@ -31,6 +31,7 @@ type State = {
   startEditing: (editing: EditingProfile) => void;
   renameEditing: (name: string) => void;
   clearEditing: () => void;
+  reset: () => void;
 };
 export const useProfile = create<State>((set) => ({
   profile: stored(),
@@ -38,6 +39,14 @@ export const useProfile = create<State>((set) => ({
   startEditing: (editing) => set({ editing }),
   renameEditing: (name) => set((state) => ({ editing: state.editing ? { ...state.editing, name } : null })),
   clearEditing: () => set({ editing: null }),
+  reset: () => {
+    try {
+      localStorage.removeItem("silverhelper-profile");
+    } catch {
+      /* storage unavailable */
+    }
+    set({ profile: { ...initialProfile }, editing: null });
+  },
   update: (patch) =>
     set((state) => {
       const profile = { ...state.profile, ...patch };

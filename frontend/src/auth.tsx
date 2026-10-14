@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (token: AuthToken) => { setAccessToken(token.accessToken); setUser(token.user); setReady(true); };
   const logout = async () => {
     try { await api<void>("/api/auth/logout", { method: "POST" }); }
-    finally { setAccessToken(null); setUser(null); useProfile.getState().clearEditing(); }
+    finally { setAccessToken(null); setUser(null); useProfile.getState().reset(); }
   };
   return <AuthContext.Provider value={{ user, ready, login, logout }}>{children}</AuthContext.Provider>;
 }
