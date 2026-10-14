@@ -7,7 +7,8 @@ export function ProfilePage() {
   const { profile, update, editing } = useProfile();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const editingThisUser = editing?.userId === user?.id;
+  // 비로그인 상태에서 undefined === undefined가 참이 되지 않도록 둘 다 있을 때만 비교한다
+  const editingThisUser = editing != null && user != null && editing.userId === user.id;
   return (
     <section>
       <div className="hero">
