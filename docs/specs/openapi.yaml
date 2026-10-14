@@ -267,7 +267,7 @@ paths:
       operationId: listRegions
       security: []
       summary: 시도·시군구 목록
-      description: 수집된 혜택에 나오는 지역에서 만든다(행정구역 개편을 따라가기 위해 코드표를 쓰지 않음).
+      description: 빈 DB에서도 현재 시도 16개를 반환하고, 수집된 혜택의 시군구를 보완한다. 기존 광주광역시·전라남도는 전남광주통합특별시로 정규화한다. 지역 확인 필요 항목은 선택지에서 제외한다.
       responses:
         '200':
           description: 성공
@@ -443,6 +443,68 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/AuthSuccess' }
         '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/dev/admin-login:
+    post:
+      tags: [auth]
+      operationId: devAdminLogin
+      summary: local 프로필 전용 개발 관리자 로그인 (운영에서는 404)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200': { $ref: '#/components/responses/AuthSuccess' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /api/admin/dev/sample-seed:
+    post:
+      tags: [admin-reviews]
+      operationId: devSampleSeed
+      summary: local 프로필에서 수집된 미검증 혜택을 개발용 샘플로 공개 (운영에서는 404)
+      security: [{ admin: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 20, default: 5 }
+      responses:
+        '200':
+          description: 공개한 샘플 건수와 혜택 ID
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiResponse' }
+              example: { success: true, data: { published: 5, benefitIds: [1, 2, 3, 4, 5] }, error: null }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/dev/repair-stored-list:
+    post:
+      tags: [admin-reviews]
+      operationId: devRepairStoredList
+      summary: local 프로필에서 저장된 최신 LIST 원문의 태그·지역만 배치 보정 (운영에서는 404)
+      security: [{ admin: [] }]
+      parameters:
+        - name: afterId
+          in: query
+          schema: { type: integer, format: int64, minimum: 0, default: 0 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 500 }
+      responses:
+        '200':
+          description: 다음 호출에는 data.nextAfterId를 afterId로 사용하며 done이면 종료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiResponse' }
+              example: { success: true, data: { scanned: 500, tagChanged: 10, regionChanged: 4, nextAfterId: 500, done: false }, error: null }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /api/auth/exchange:
     post:

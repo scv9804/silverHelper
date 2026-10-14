@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
  * 원천마다 필드명이 달라서(A lifeArray, B lifeNmArray, C 한글 필드명) 여기 한곳에 모은다.
  */
 public final class SourceMapper {
+	public static final String REGION_UNKNOWN = "지역 확인 필요";
 
 	private static final DateTimeFormatter YMD = DateTimeFormatter.ofPattern("yyyyMMdd");
 	private static final DateTimeFormatter YMD_HMS = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -74,15 +75,15 @@ public final class SourceMapper {
 					cut(item.text("rprsCtadr"), 500),
 					date(item.text("svcfrstRegTs")),
 					null,
-					tags(item.text("lifeArray"), item.text("trgterIndvdlArray"), item.text("intrsThemaArray")));
+					tags(item.text("lifeArray"), item.text("trgterIndvdlArray"), item.text("intrsThemaArray"), item.text("servNm"), item.text("servDgst")));
 			case LOCAL -> new ListFields(
 					cut(item.text("servNm"), 300),
 					item.text("servDgst"),
 					cut(sourceUrl(source, item), 1000),
 					cut(join(" ", item.text("ctpvNm"), item.text("sggNm")), 200),
 					cut(item.text("bizChrDeptNm"), 200),
-					cut(item.text("ctpvNm"), 50),
-					cut(item.text("sggNm"), 50),
+					cut(item.text("ctpvNm") == null ? REGION_UNKNOWN : RegionNames.normalize(item.text("ctpvNm")), 50),
+					cut(item.text("ctpvNm") == null ? null : item.text("sggNm"), 50),
 					cut(item.text("sprtCycNm"), 100),
 					cut(item.text("srvPvsnNm"), 100),
 					cut(item.text("aplyMtdNm"), 200),
@@ -90,7 +91,7 @@ public final class SourceMapper {
 					null,
 					null,
 					startOfDay(date(item.text("lastModYmd"))),
-					tags(item.text("lifeNmArray"), item.text("trgterIndvdlNmArray"), item.text("intrsThemaNmArray")));
+					tags(item.text("lifeNmArray"), item.text("trgterIndvdlNmArray"), item.text("intrsThemaNmArray"), item.text("servNm"), item.text("servDgst")));
 			case GOV24 -> {
 				String[] region = gov24Region(item.text("소관기관유형"), item.text("소관기관명"));
 				yield new ListFields(
@@ -108,7 +109,7 @@ public final class SourceMapper {
 						cut(item.text("전화문의"), 500),
 						date(left(item.text("등록일시"), 8)),
 						dateTime(item.text("수정일시")),
-						tags(null, null, item.text("서비스분야")));
+						tags(null, null, item.text("서비스분야"), item.text("서비스명"), item.text("서비스목적요약")));
 			}
 		};
 	}
@@ -211,32 +212,53 @@ public final class SourceMapper {
 
 	/**
 	 * 정부24는 지역 필드가 없다. 소관기관유형이 시군구면 "경상북도 울진군" → (경상북도, 울진군),
-	 * 광역시도면 "서울특별시" → (서울특별시, null). 그 밖(중앙행정기관 등)은 전국.
+	 * 광역시도면 "서울특별시" → (서울특별시, null). 중앙기관은 전국, 불명확한 지역 기관은 확인 필요.
 	 */
 	static String[] gov24Region(String agencyType, String agencyName) {
-		if (agencyName == null || agencyType == null) {
+		if (agencyType != null && (agencyType.contains("중앙행정기관") || agencyType.contains("공공기관"))) {
 			return new String[] {null, null};
+		}
+		if (agencyName == null || agencyType == null) {
+			return new String[] {REGION_UNKNOWN, null};
 		}
 		String name = agencyName.trim();
 		if (agencyType.contains("시군구")) {
 			int space = name.indexOf(' ');
 			if (space > 0) {
-				return new String[] {name.substring(0, space), name.substring(space + 1).trim()};
+				String ctpv = name.substring(0, space);
+				String sgg = name.substring(space + 1).trim();
+				if (isProvince(ctpv) && isDistrict(sgg)) {
+					return new String[] {RegionNames.normalize(ctpv), sgg};
+				}
 			}
-			return new String[] {null, name};
+			return new String[] {REGION_UNKNOWN, null};
 		}
 		if (agencyType.contains("광역") || agencyType.contains("시도")) {
 			int space = name.indexOf(' ');
-			return new String[] {space > 0 ? name.substring(0, space) : name, null};
+			String ctpv = space > 0 ? name.substring(0, space) : name;
+			return new String[] {isProvince(ctpv) ? RegionNames.normalize(ctpv) : REGION_UNKNOWN, null};
 		}
-		return new String[] {null, null};
+		return new String[] {REGION_UNKNOWN, null};
 	}
 
-	private static List<TagCode> tags(String life, String household, String theme) {
+	private static boolean isProvince(String name) {
+		return name.endsWith("특별시") || name.endsWith("광역시") || name.endsWith("특별자치시")
+				|| name.endsWith("도") || name.endsWith("특별자치도") || name.equals("전남광주통합특별시");
+	}
+
+	private static boolean isDistrict(String name) {
+		return name.endsWith("시") || name.endsWith("군") || name.endsWith("구");
+	}
+
+	private static List<TagCode> tags(String life, String household, String theme, String name, String summary) {
 		List<TagCode> tags = new ArrayList<>();
 		WelfareCode.fromNames(WelfareCode.Type.LIFE, life).forEach(c -> tags.add(new TagCode("LIFE", c.code())));
 		WelfareCode.fromNames(WelfareCode.Type.HOUSEHOLD, household).forEach(c -> tags.add(new TagCode("HOUSEHOLD", c.code())));
-		WelfareCode.fromNames(WelfareCode.Type.THEME, theme).forEach(c -> tags.add(new TagCode("THEME", c.code())));
+		String text = (name == null ? "" : name) + " " + (summary == null ? "" : summary);
+		WelfareCode.fromNames(WelfareCode.Type.THEME, theme).stream()
+				.filter(c -> !c.equals(WelfareCode.THEME_ADOPTION) || text.matches("(?s).*(입양|위탁|양육시설).*"))
+				.filter(c -> !c.equals(WelfareCode.THEME_FINANCE) || text.matches("(?s).*(대출|융자|채무|금융|신용|보증).*"))
+				.forEach(c -> tags.add(new TagCode("THEME", c.code())));
 		return tags;
 	}
 

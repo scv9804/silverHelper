@@ -70,6 +70,10 @@ class SourceMapperTests {
 		assertThat(f.ctpvName()).isEqualTo("경기도");
 		assertThat(f.sggName()).isEqualTo("양주시");
 		assertThat(f.sourceModifiedAt().toLocalDate()).isEqualTo(LocalDate.of(2026, 10, 13));
+		assertThat(f.tags()).doesNotContain(new TagCode("THEME", "130"));
+		ListFields health = SourceMapper.listFields(Source.LOCAL,
+				WelfareXmlParser.parseList(Source.LOCAL, Fixtures.bytes("local-list.xml")).items().get(1));
+		assertThat(health.tags()).doesNotContain(new TagCode("THEME", "130"));
 	}
 
 	@Test
@@ -85,6 +89,29 @@ class SourceMapperTests {
 		assertThat(national.ctpvName()).isNull();
 		assertThat(national.tags()).contains(new TagCode("THEME", "120"));
 		assertThat(SourceMapper.gov24Region("광역시도", "서울특별시")).containsExactly("서울특별시", null);
+		assertThat(SourceMapper.gov24Region("시군구", "경상북도 경주시")).containsExactly("경상북도", "경주시");
+		assertThat(SourceMapper.gov24Region("시군구", "광주광역시 북구"))
+				.containsExactly("전남광주통합특별시", "북구");
+		assertThat(SourceMapper.gov24Region("시군구", "전라남도 순천시"))
+				.containsExactly("전남광주통합특별시", "순천시");
+		assertThat(SourceMapper.gov24Region("광역시도", "광주광역시"))
+				.containsExactly("전남광주통합특별시", null);
+		assertThat(SourceMapper.gov24Region("광역시도", "전라남도"))
+				.containsExactly("전남광주통합특별시", null);
+		assertThat(SourceMapper.gov24Region("시군구", "경주시")).containsExactly("지역 확인 필요", null);
+		assertThat(SourceMapper.gov24Region("시군구", "알 수 없는 기관")).containsExactly("지역 확인 필요", null);
+	}
+
+	@Test
+	void 지자체_LIST의_구_시도명만_정규화하고_기관_원문은_유지한다() {
+		SourceRecord old = WelfareXmlParser.parseList(Source.LOCAL, Fixtures.bytes("local-list.xml")).items().getFirst();
+		Map<String, Object> fields = new java.util.HashMap<>(old.fields());
+		fields.put("ctpvNm", "전라남도");
+		fields.put("sggNm", "순천시");
+		ListFields mapped = SourceMapper.listFields(Source.LOCAL, new SourceRecord(fields, old.rawBody()));
+		assertThat(mapped.ctpvName()).isEqualTo("전남광주통합특별시");
+		assertThat(mapped.sggName()).isEqualTo("순천시");
+		assertThat(mapped.agencyName()).isEqualTo("전라남도 순천시");
 	}
 
 	@Test

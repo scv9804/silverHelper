@@ -1,5 +1,6 @@
 package com.silverhelper.user;
 
+import com.silverhelper.pipeline.service.RegionNames;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class UserStore {
+    static final String LOCAL_ADMIN_PREFIX = "#local-admin#";
     private final JdbcTemplate jdbc;
 
     public UserStore(JdbcTemplate jdbc) { this.jdbc = jdbc; }
@@ -24,7 +26,7 @@ public class UserStore {
     }
     private static Profile profile(ResultSet rs, int row) throws SQLException {
         return new Profile(rs.getLong("id"), rs.getString("name"), rs.getObject("age",Integer.class),
-                rs.getString("ctpv_name"), rs.getString("sgg_name"), rs.getObject("ltc_grade",Integer.class),
+                RegionNames.normalize(rs.getString("ctpv_name")), rs.getString("sgg_name"), rs.getObject("ltc_grade",Integer.class),
                 (Boolean) rs.getObject("has_no_ltc_grade"), rs.getObject("income_median_pct",Integer.class),
                 (Boolean) rs.getObject("basic_livelihood"), (Boolean) rs.getObject("near_poverty"),
                 (Boolean) rs.getObject("basic_pension"), (Boolean) rs.getObject("disability"),
@@ -35,6 +37,15 @@ public class UserStore {
     }
     public boolean isDev(long id) {
         return Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from social_account where user_id=? and provider='DEV')",Boolean.class,id));
+    }
+    public boolean isLocalAdmin(long id) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("select exists(select 1 from social_account where user_id=? and provider='DEV' and provider_user_id like '#local-admin#%')",Boolean.class,id));
+    }
+    @Transactional
+    public User localAdmin(String name) {
+        User user = social("DEV", LOCAL_ADMIN_PREFIX + name, name, null);
+        jdbc.update("update user_account set role='ADMIN' where id=?", user.id());
+        return new User(user.id(), user.displayName(), user.email(), "ADMIN");
     }
     @Transactional
     public User social(String provider, String providerId, String name, String email) {
@@ -63,12 +74,12 @@ public class UserStore {
     }
     public Profile create(long userId, Profile p) {
         Long id = jdbc.queryForObject("insert into parent_profile(user_id,name,age,ctpv_name,sgg_name,ltc_grade,has_no_ltc_grade,income_median_pct,basic_livelihood,near_poverty,basic_pension,disability,veteran,living_alone) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?) returning id", Long.class,
-                userId,p.name(),p.age(),p.ctpvName(),p.sggName(),p.ltcGrade(),p.hasNoLtcGrade(),p.incomeMedianPct(),p.basicLivelihood(),p.nearPoverty(),p.basicPension(),p.disability(),p.veteran(),p.livingAlone());
+                userId,p.name(),p.age(),RegionNames.normalize(p.ctpvName()),p.sggName(),p.ltcGrade(),p.hasNoLtcGrade(),p.incomeMedianPct(),p.basicLivelihood(),p.nearPoverty(),p.basicPension(),p.disability(),p.veteran(),p.livingAlone());
         return profile(userId,id).orElseThrow();
     }
     public boolean update(long userId, long id, Profile p) {
         return jdbc.update("update parent_profile set name=?,age=?,ctpv_name=?,sgg_name=?,ltc_grade=?,has_no_ltc_grade=?,income_median_pct=?,basic_livelihood=?,near_poverty=?,basic_pension=?,disability=?,veteran=?,living_alone=?,updated_at=now() where user_id=? and id=?",
-                p.name(),p.age(),p.ctpvName(),p.sggName(),p.ltcGrade(),p.hasNoLtcGrade(),p.incomeMedianPct(),p.basicLivelihood(),p.nearPoverty(),p.basicPension(),p.disability(),p.veteran(),p.livingAlone(),userId,id)>0;
+                p.name(),p.age(),RegionNames.normalize(p.ctpvName()),p.sggName(),p.ltcGrade(),p.hasNoLtcGrade(),p.incomeMedianPct(),p.basicLivelihood(),p.nearPoverty(),p.basicPension(),p.disability(),p.veteran(),p.livingAlone(),userId,id)>0;
     }
     public boolean delete(long userId, long id) {
         return jdbc.update("delete from parent_profile where user_id=? and id=?",userId,id)>0;

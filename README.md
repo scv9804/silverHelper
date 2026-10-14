@@ -78,6 +78,18 @@ cd frontend && npm install && npm run dev
 
 PowerShell에서는 백엔드 실행 전에 `$env:SPRING_PROFILES_ACTIVE = 'local'`을 설정한다. 프로필을 지정하지 않으면 운영 안전 설정이 적용되어 32바이트 이상의 `JWT_SECRET`이 필요하고 개발용 로그인은 비활성화된다.
 
+### 로컬 데모 데이터
+
+`local` 프로필에서 공공 API 수집으로 원문이 저장된 뒤, AI 키 없이 일부 혜택을 개발용 샘플로 공개할 수 있다. 빈 DB에서는 먼저 수집을 완료해야 하며, 샘플은 화면과 매칭 결과에 **개발용 샘플 데이터 · 자격 조건 미검증**으로 표시된다. 실제 신청 자격을 확인하는 용도로 쓰지 않는다.
+
+```powershell
+$login = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/dev/admin-login -ContentType application/json -Body '{"name":"local-demo-admin"}'
+$headers = @{ Authorization = "Bearer $($login.data.accessToken)" }
+Invoke-RestMethod -Method Post -Uri 'http://localhost:8080/api/admin/dev/sample-seed?limit=5' -Headers $headers
+```
+
+기존 로컬 DB의 잘못된 태그·지역은 `POST /api/admin/dev/repair-stored-list?afterId=0&limit=500`을 `nextAfterId`로 이어 호출해 보정한다. 최신 저장 LIST 원문만 다시 해석하며 원문·해시·AI 검증 상태는 바꾸지 않는다. 이 개발 API와 관리자 로그인은 `prod` 프로필에서 생성되지 않는다.
+
 ## AI CLI 개발 방식
 
 - 이슈 1개 = 브랜치 1개 = PR 1개로 작업하고, PR마다 AI 리뷰를 거칩니다.
