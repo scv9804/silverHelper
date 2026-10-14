@@ -9,7 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Profile("local")
+@Profile("local & !prod")
 @RestController
 public class DevLoginController {
     private final UserStore users;

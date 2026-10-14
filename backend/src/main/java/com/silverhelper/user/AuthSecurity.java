@@ -4,15 +4,11 @@ import com.silverhelper.common.exception.ErrorCode;
 import com.silverhelper.common.response.ApiResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -29,15 +25,6 @@ import tools.jackson.databind.json.JsonMapper;
 
 @Configuration(proxyBeanMethods=false)
 public class AuthSecurity {
-    @Bean
-    SecretKey authKey(@Value("${app.auth.jwt-secret:}") String secret, Environment env) {
-        if (secret.getBytes(StandardCharsets.UTF_8).length<32) {
-            if (!env.matchesProfiles("local", "test")) throw new IllegalStateException("JWT_SECRET must be at least 32 bytes");
-            byte[] bytes=new byte[32];new java.security.SecureRandom().nextBytes(bytes);
-            return new SecretKeySpec(bytes,"HmacSHA256");
-        }
-        return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8),"HmacSHA256");
-    }
     @Bean JwtEncoder authJwtEncoder(SecretKey authKey) {
         return new NimbusJwtEncoder(new com.nimbusds.jose.jwk.source.ImmutableSecret<>(authKey));
     }
