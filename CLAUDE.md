@@ -12,10 +12,10 @@
 
 ## 명령어
 - 로컬 DB/Redis: `docker compose up -d`
-- 백엔드 실행: `cd backend && ./gradlew bootRun`
+- 백엔드 실행: `cd backend && SPRING_PROFILES_ACTIVE=local ./gradlew bootRun` (PowerShell: `$env:SPRING_PROFILES_ACTIVE = 'local'; ./gradlew bootRun`)
 - 백엔드 테스트: `cd backend && ./gradlew test` (Testcontainers 사용, Docker 필요)
 - 프론트 실행: `cd frontend && npm run dev` (http://localhost:5173, `/api`는 8080으로 프록시)
-- 프론트 검사: `cd frontend && npm run lint && npm run build`
+- 프론트 검사: `cd frontend && npm run lint && npm test && npm run build`
 
 ## 백엔드 규칙
 - 패키지는 도메인 기준: `com.silverhelper.{benefit,user,pipeline,notification,common}`
